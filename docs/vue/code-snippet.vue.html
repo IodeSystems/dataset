@@ -1,0 +1,39 @@
+<style>
+  .code-snippet {
+    margin: 0;
+    overflow: auto;
+    padding: 10px;
+  }
+
+  .code-snippet * {
+    font-weight: normal !important;
+  }
+</style>
+<pre class="code-snippet prettyprint lang-xml" v-html="content"></pre>
+<script>
+  window['code-snippet'] = {
+    require: {
+      PR: '//unpkg.com/code-prettify@0.1.0/src/prettify.js',
+      PR_CSS: '//unpkg.com/code-prettify@0.1.0/styles/desert.css'
+    },
+    then: function () {
+      return {
+        props: {
+          code: String
+        },
+        computed: {
+          content: function () {
+            return PR.prettyPrintOne(this.code.replace(/[<>]/g, function (m) {
+              switch (m) {
+                case '<':
+                  return '&lt;';
+                case '>':
+                  return '&gt;';
+              }
+            }));
+          }
+        }
+      }
+    }
+  }
+</script>

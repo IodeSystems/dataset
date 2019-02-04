@@ -1,0 +1,466 @@
+<style>
+  .dataset {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+
+  .dataset_search {
+    width: 300px;
+    position: absolute;
+    right: 0;
+    top: -38px;
+    display: flex;
+  }
+
+  .dataset_search_button {
+    background-color: #5C7E91;
+    color: white;
+  }
+
+  .dataset_pagination {
+    position: absolute;
+    padding: 10px;
+    text-align: right;
+    bottom: 0;
+    right: 0;
+  }
+
+  .dataset-pagination-small .dataset_pagination {
+    padding: 0;
+  }
+
+  .dataset_loading {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.15);
+  }
+
+  /* Table styling */
+  .dataset-table .dataset_table, .dataset-table .dataset_table_header {
+    display: table;
+    table-layout: fixed;
+    width: 100%;
+  }
+
+  .dataset-table .dataset_table_header_row {
+    display: table-row;
+    background-color: #5C7E91;
+    color: white;
+  }
+
+  .dataset-table .dataset_table_header_row > * {
+    display: table-cell;
+    padding: 5px;
+    border: 0 solid #ddd;
+    border-right-width: 1px;
+  }
+
+  .dataset_results_container {
+    position: absolute;
+    top: 0;
+    bottom: 60px;
+    right: 0;
+    left: 0;
+    overflow-x: auto;
+  }
+
+  .dataset-pagination-small .dataset_results_container {
+    bottom: 33px;
+  }
+
+  .dataset_results_scroll_y_container {
+    position: absolute;
+    top: 34px;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+  }
+
+  .dataset-table .dataset_table_header_row > *:last-of-type {
+    border-right-width: 1px;
+  }
+
+  .dataset-table .dataset_table_rows {
+    display: table-row-group;
+  }
+
+  .dataset-table .dataset_table_rows > * {
+    display: table-row;
+  }
+
+  .dataset-table .dataset_table_rows > * > * {
+    display: table-cell;
+    padding: 5px;
+  }
+
+  .dataset-table.striped .dataset_table_rows > *:nth-child(odd) > * {
+    background-color: #f9f9f9;
+  }
+
+  .dataset-table.bordered .dataset_table_rows > * > * {
+    border: 1px solid #ddd;
+    border-bottom-width: 0;
+    border-right-width: 0;
+  }
+
+  .dataset-table.bordered .dataset_table_rows > *:last-of-type > * {
+    border-bottom-width: 1px;
+  }
+
+  .dataset-table.bordered .dataset_table_rows > * > *:last-of-type {
+    border-right-width: 1px;
+  }
+
+  .dataset-table.bordered .dataset_table_rows .locationRow div {
+    overflow-x: scroll;
+  }
+
+</style>
+<div class="dataset" :class="'dataset-' + display + ' dataset-pagination-' + paginationSize">
+  <error-modal v-if="error" :error="error" @close="error = null"></error-modal>
+  <div class="dataset_search" v-if="showSearch">
+    <input class="form-control" @keydown.enter="query" placeholder="Search" v-model="search">
+    <button class="btn btn-default action dataset_search_button" @click="query" type="button">
+      Search
+    </button>
+  </div>
+
+  <div class="dataset_results_container">
+    <div class="dataset_table_header">
+      <div class="dataset_table_header_row" ref="header">
+        <slot name="header"></slot>
+      </div>
+    </div>
+    <div class="dataset_results_scroll_y_container">
+      <div class="dataset_table">
+        <div class="dataset_table_rows" ref="rows">
+          <slot v-bind="row" v-bind:$row="row" v-for="row in newRows">
+            <div>
+              <div>
+                Please supply a default template for rows.
+              </div>
+            </div>
+          </slot>
+          <slot v-bind="row" v-bind:$row="row" v-for="row in rows">
+            <div>
+              <div>
+                Please supply a default template for rows.
+              </div>
+            </div>
+          </slot>
+        </div>
+      </div>
+    </div>
+
+    <slot name="loading" v-if="showLoader">
+      <div class="dataset_loading">
+        <spinner :fill="true"></spinner>
+      </div>
+    </slot>
+    <slot name="no-data" v-else-if="!hasRecords">
+      <div class="well" style="clear:both; text-align:center;">
+        No records found
+      </div>
+    </slot>
+  </div>
+
+  <pagination v-if="showPagination && !showLoader && hasRecords"
+              class="dataset_pagination"
+              :item-count="rowsInSearch"
+              :total-item-count="rowsInPartition"
+              :page-size="pageSize"
+              :page="page"
+              :size="paginationSize"
+              @page="page = arguments[0]"
+  ></pagination>
+</div>
+
+<script>
+  importVueComponent("error-modal");
+  importVueComponent("pagination");
+  importVueComponent("spinner");
+  window['datasetBus'] = new Vue({
+    created: function () {
+      window.addEventListener('resize', this.resize);
+    },
+    methods: {
+      resize: function () {
+        this.$emit('resize');
+      }
+    }
+  });
+  window['dataset'] = {
+    require: {
+      debounce: 'debounce.js'
+    },
+    then: function () {
+      return {
+        props: {
+          idColumn: {
+            type: String,
+            default: "id"
+          },
+          dataSearch: {
+            type: Function
+          },
+          display: {
+            type: String,
+            default: 'table bordered striped'
+          },
+          partition: {
+            type: String,
+            default: ""
+          },
+          remoteUrl: {
+            type: String
+          },
+          pageSize: {
+            type: Number,
+            default: 50
+          },
+          showSearch: {
+            type: Boolean,
+            default: true
+          },
+          paginationSize: {
+            type: String
+          },
+          showPagination: {
+            type: Boolean,
+            default: true
+          },
+          convert: {
+            type: Function,
+            default: function (o) {
+              return o;
+            }
+          },
+          newRows: {
+            type: Array,
+            default: function () {
+              return [];
+            }
+          }
+        },
+        data: function () {
+          return {
+            selectionIds: [],
+            selectionInverted: false,
+            resizer: null,
+            columns: {},
+            ordering: [],
+            loading: false,
+            rowsInSearch: 0,
+            rowsInPartition: 0,
+            error: null,
+            search: null,
+            lastQueryKey: null,
+            page: 1,
+            rows: []
+          }
+        },
+        beforeDestroy: function () {
+          datasetBus.$off('resize', this.resizer);
+        },
+        mounted: function () {
+          datasetBus.$on('resize', this.resizer = function () {
+            this.syncColumnsAndHeaderWidths();
+          }.bind(this));
+
+          this.loading = true;
+          this.$on('toggleSort', function (column, direction) {
+            this.ordering.splice(0, this.ordering.length);
+            this.ordering.push({column: column, sort: direction});
+          });
+
+          this.$nextTick(function () {
+            this.loading = false;
+            this.queryNow();
+          });
+
+          this.syncColumnsAndHeaderWidths();
+        },
+        watch: {
+          data: function () {
+            this.query();
+          },
+          page: function () {
+            this.query();
+          },
+          partition: function () {
+            this.page = 1;
+            this.query();
+          },
+          ordering: function () {
+            this.query();
+          }
+        },
+        updated: function () {
+          this.syncColumnsAndHeaderWidths();
+        },
+        methods: {
+          syncColumnsAndHeaderWidths: function () {
+            var header = this.$refs.header;
+            var rows = this.$refs.rows;
+            if (header && rows && rows.children[0]) {
+              for (var i = 0; i < header.children.length; i++) {
+                var h = header.children[i];
+                var r = rows.children[0].children[i];
+                if (h && r) {
+                  r.style.width = h.offsetWidth;
+                }
+              }
+            }
+          },
+          isRowSelected: function (row) {
+            var id = row[this.idColumn];
+            return this.selectionIds.indexOf(id) === -1
+                ? this.selectionInverted
+                : !this.selectionInverted
+          },
+          toggleSelectAll: function () {
+            if (this.selectionState === 'NONE' || this.selectionState === 'SOME') {
+              this.selectionIds.splice(0, this.selectionIds.length);
+              this.selectionInverted = true;
+            } else if (this.selectionState === 'ALL') {
+              this.selectionIds.splice(0, this.selectionIds.length);
+              this.selectionInverted = false;
+            }
+            this.$emit("select", this.selection);
+          },
+          removeSelectedRow: function (row) {
+            var id = row[this.idColumn];
+            if (this.selectionIds.indexOf(id) !== -1) {
+              if (this.selectionInverted) {
+                this.selectionIds.splice(this.selectionIds.indexOf(id), 1);
+              } else {
+                this.toggleRowSelected(row);
+              }
+            }
+          },
+          toggleRowSelected: function (row) {
+            var id = row[this.idColumn];
+            var add = this.isRowSelected(row);
+            add = this.selectionInverted ? add : !add;
+            if (add) {
+              this.selectionIds.push(id)
+            } else {
+              this.selectionIds.splice(this.selectionIds.indexOf(id), 1)
+            }
+
+            if (this.selectionIds.length === this.rowsInPartition + this.newRows.length) {
+              this.selectionIds.splice(0, this.selectionIds.length);
+              this.selectionInverted = !this.selectionInverted;
+            }
+
+            this.$emit("select", this.selection);
+          },
+          queryRemoteUrl: function () {
+            return $.ajax({
+              method: "post",
+              url: this.remoteUrl,
+              contentType: "application/json",
+              dataType: "json",
+              data: JSON.stringify({
+                page: this.page - 1,
+                pageSize: this.pageSize,
+                ordering: this.ordering,
+                partition: this.partition,
+                search: this.search
+              })
+            }).then(function (ok) {
+              for (var i = 0; i < ok.columns.length; i++) {
+                var column = ok.columns[i];
+                if (!this.columns[column.name]) {
+                  Vue.set(this.columns, column.name, column);
+                } else {
+                  this.columns[column.name].sortDirection = column.sortDirection;
+                }
+              }
+              this.rowsInSearch = ok.recordsFiltered;
+              this.rowsInPartition = ok.recordsTotal;
+              this.rows = ok.data.map(this.convert);
+            }.bind(this), function (er) {
+              this.error = er.responseJSON;
+            }.bind(this));
+          },
+          refresh: function () {
+            this.lastQueryKey = null;
+            this.queryNow();
+          },
+          queryNow: function () {
+            if (this.loading) {
+              // Prevent double loading
+              return;
+            }
+
+            var queryKey = this.search + ":" + this.orderingKey + ":" + this.page + ":"
+                + this.pageSize
+                + ":" + this.partition;
+
+            if (this.lastQueryKey == queryKey) {
+              // Prevent duplicate query
+              return;
+            } else {
+              this.lastQueryKey = queryKey;
+            }
+
+            this.loading = true;
+            return this.queryRemoteUrl().always(function () {
+              this.loading = false;
+            }.bind(this));
+          },
+          query: debounce(function () {
+            return this.queryNow();
+          }, 250)
+        },
+        computed: {
+          selection: function () {
+            return {
+              ids: this.selectionIds,
+              count: this.selectedCount,
+              inverted: this.selectionInverted,
+              state: this.selectionState
+            }
+          },
+          orderingKey: function () {
+            return JSON.stringify(this.ordering);
+          },
+          selectedCount: function () {
+            if (this.selectionInverted) {
+              return (this.rowsInSearch + this.newRows.length) - this.selectionIds.length;
+            } else {
+              return this.selectionIds.length;
+            }
+          },
+          selectionState: function () {
+            if (this.selectionIds.length === this.rowsInPartition + this.newRows.length) {
+              return this.selectionInverted ? 'NONE' : 'ALL'
+            } else if (this.selectionIds.length > 0) {
+              return 'SOME'
+            } else {
+              return this.selectionInverted ? 'ALL' : 'NONE';
+            }
+          },
+          selectAllState: function () {
+            return this.selectionState;
+          },
+          hasRecords: function () {
+            return this.rows && this.rows.length > 0;
+          },
+          showLoader: function () {
+            return !!this.loading;
+          }
+        }
+      }
+    }
+  }
+</script>

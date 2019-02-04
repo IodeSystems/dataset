@@ -1,0 +1,105 @@
+<style>
+  .dataset-header {
+    line-height: 24px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    position: relative;
+  }
+
+  .dataset-header.orderable {
+    cursor: pointer;
+  }
+
+  .dataset-header.asc, .dataset-header.desc {
+    padding-right: 15px !important;
+  }
+
+  .dataset-header.asc:after {
+    font-size: 8px;
+    line-height: 24px;
+    position: absolute;
+    right: 4px;
+    content: "\25B2";
+  }
+
+  .dataset-header.desc:after {
+    font-size: 8px;
+    line-height: 24px;
+    content: "\25BC";
+    position: absolute;
+    right: 4px;
+  }
+</style>
+
+<div class="dataset-header unselectable"
+     :class="sortDirection + (orderable ? ' orderable' : '')"
+     @click="toggleSort"
+     :style="{width: tableWidth}">
+  <slot>{{name}}</slot>
+</div>
+
+<script>
+  window['dataset-header'] = (function () {
+    return {
+      props: {
+        name: {
+          type: String,
+          required: true
+        },
+        align: {
+          type: String,
+          required: false
+        },
+        sortFunction: Function,
+        width: {
+          type: String,
+          required: false
+        }
+      },
+      data: function () {
+        return {
+          isDataTableHeader: true
+        }
+      },
+      methods: {
+        toggleSort: function () {
+          if (!this.orderable) {
+            return;
+          }
+          var sortDirection = 'ASC';
+          if (this.sortDirection === 'ASC') {
+            sortDirection = 'DESC';
+          }
+          this.$parent.$emit("toggleSort", this.name, sortDirection);
+        }
+      },
+      computed: {
+        orderable: function () {
+          if (!this.$parent.columns) {
+            return false;
+          }
+          if (!this.$parent.columns[this.name]) {
+            return false;
+          }
+          return this.$parent.columns[this.name].orderable;
+        },
+        tableWidth: function () {
+          if (this.width) {
+            return this.width;
+          } else {
+            return "auto";
+          }
+        },
+        sortDirection: function () {
+          for (var i = 0; i < this.$parent.ordering.length; i++) {
+            var ordering = this.$parent.ordering[i];
+            if (ordering.column === this.name) {
+              return ordering.sort;
+            }
+          }
+          return null;
+        }
+      }
+    }
+  })()
+</script>
