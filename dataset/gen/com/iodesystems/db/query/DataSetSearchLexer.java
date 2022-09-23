@@ -1,4 +1,4 @@
-// Generated from com/iodesystems/db/query/DataSetSearch.g4 by ANTLR 4.7.1
+// Generated from java-escape by ANTLR 4.11.1
 package com.iodesystems.db.query;
 import org.antlr.v4.runtime.Lexer;
 import org.antlr.v4.runtime.CharStream;
@@ -9,9 +9,9 @@ import org.antlr.v4.runtime.atn.*;
 import org.antlr.v4.runtime.dfa.DFA;
 import org.antlr.v4.runtime.misc.*;
 
-@SuppressWarnings({"all", "warnings", "unchecked", "unused", "cast"})
+@SuppressWarnings({"all", "warnings", "unchecked", "unused", "cast", "CheckReturnValue"})
 public class DataSetSearchLexer extends Lexer {
-	static { RuntimeMetaData.checkVersion("4.7.1", RuntimeMetaData.VERSION); }
+	static { RuntimeMetaData.checkVersion("4.11.1", RuntimeMetaData.VERSION); }
 
 	protected static final DFA[] _decisionToDFA;
 	protected static final PredictionContextCache _sharedContextCache =
@@ -27,18 +27,27 @@ public class DataSetSearchLexer extends Lexer {
 		"DEFAULT_MODE"
 	};
 
-	public static final String[] ruleNames = {
-		"STRING", "TARGET", "TARGET_SEPARATOR", "TERM_OR", "TERM_GROUP_START", 
-		"TERM_GROUP_END", "ANY", "WS"
-	};
+	private static String[] makeRuleNames() {
+		return new String[] {
+			"STRING", "TARGET", "TARGET_SEPARATOR", "TERM_OR", "TERM_GROUP_START", 
+			"TERM_GROUP_END", "ANY", "WS"
+		};
+	}
+	public static final String[] ruleNames = makeRuleNames();
 
-	private static final String[] _LITERAL_NAMES = {
-		null, null, null, "':'", "','", "'('", "')'"
-	};
-	private static final String[] _SYMBOLIC_NAMES = {
-		null, "STRING", "TARGET", "TARGET_SEPARATOR", "TERM_OR", "TERM_GROUP_START", 
-		"TERM_GROUP_END", "ANY", "WS"
-	};
+	private static String[] makeLiteralNames() {
+		return new String[] {
+			null, null, null, "':'", "','", "'('", "')'"
+		};
+	}
+	private static final String[] _LITERAL_NAMES = makeLiteralNames();
+	private static String[] makeSymbolicNames() {
+		return new String[] {
+			null, "STRING", "TARGET", "TARGET_SEPARATOR", "TERM_OR", "TERM_GROUP_START", 
+			"TERM_GROUP_END", "ANY", "WS"
+		};
+	}
+	private static final String[] _SYMBOLIC_NAMES = makeSymbolicNames();
 	public static final Vocabulary VOCABULARY = new VocabularyImpl(_LITERAL_NAMES, _SYMBOLIC_NAMES);
 
 	/**
@@ -97,25 +106,50 @@ public class DataSetSearchLexer extends Lexer {
 	public ATN getATN() { return _ATN; }
 
 	public static final String _serializedATN =
-		"\3\u608b\ua72a\u8133\ub9ed\u417c\u3be7\u7786\u5964\2\nB\b\1\4\2\t\2\4"+
-		"\3\t\3\4\4\t\4\4\5\t\5\4\6\t\6\4\7\t\7\4\b\t\b\4\t\t\t\3\2\3\2\3\2\3\2"+
-		"\7\2\30\n\2\f\2\16\2\33\13\2\3\2\3\2\3\2\3\2\3\2\7\2\"\n\2\f\2\16\2%\13"+
-		"\2\3\2\5\2(\n\2\3\3\3\3\7\3,\n\3\f\3\16\3/\13\3\3\4\3\4\3\5\3\5\3\6\3"+
-		"\6\3\7\3\7\3\b\6\b:\n\b\r\b\16\b;\3\t\6\t?\n\t\r\t\16\t@\2\2\n\3\3\5\4"+
-		"\7\5\t\6\13\7\r\b\17\t\21\n\3\2\b\3\2$$\3\2))\4\2C\\c|\6\2\62;C\\aac|"+
-		"\6\2\"\"*+..<<\5\2\13\f\17\17\"\"\2I\2\3\3\2\2\2\2\5\3\2\2\2\2\7\3\2\2"+
-		"\2\2\t\3\2\2\2\2\13\3\2\2\2\2\r\3\2\2\2\2\17\3\2\2\2\2\21\3\2\2\2\3\'"+
-		"\3\2\2\2\5)\3\2\2\2\7\60\3\2\2\2\t\62\3\2\2\2\13\64\3\2\2\2\r\66\3\2\2"+
-		"\2\179\3\2\2\2\21>\3\2\2\2\23\31\7$\2\2\24\25\7^\2\2\25\30\7$\2\2\26\30"+
-		"\n\2\2\2\27\24\3\2\2\2\27\26\3\2\2\2\30\33\3\2\2\2\31\27\3\2\2\2\31\32"+
-		"\3\2\2\2\32\34\3\2\2\2\33\31\3\2\2\2\34(\7$\2\2\35#\7)\2\2\36\37\7^\2"+
-		"\2\37\"\7)\2\2 \"\n\3\2\2!\36\3\2\2\2! \3\2\2\2\"%\3\2\2\2#!\3\2\2\2#"+
-		"$\3\2\2\2$&\3\2\2\2%#\3\2\2\2&(\7)\2\2\'\23\3\2\2\2\'\35\3\2\2\2(\4\3"+
-		"\2\2\2)-\t\4\2\2*,\t\5\2\2+*\3\2\2\2,/\3\2\2\2-+\3\2\2\2-.\3\2\2\2.\6"+
-		"\3\2\2\2/-\3\2\2\2\60\61\7<\2\2\61\b\3\2\2\2\62\63\7.\2\2\63\n\3\2\2\2"+
-		"\64\65\7*\2\2\65\f\3\2\2\2\66\67\7+\2\2\67\16\3\2\2\28:\n\6\2\298\3\2"+
-		"\2\2:;\3\2\2\2;9\3\2\2\2;<\3\2\2\2<\20\3\2\2\2=?\t\7\2\2>=\3\2\2\2?@\3"+
-		"\2\2\2@>\3\2\2\2@A\3\2\2\2A\22\3\2\2\2\13\2\27\31!#\'-;@\2";
+		"\u0004\u0000\b@\u0006\uffff\uffff\u0002\u0000\u0007\u0000\u0002\u0001"+
+		"\u0007\u0001\u0002\u0002\u0007\u0002\u0002\u0003\u0007\u0003\u0002\u0004"+
+		"\u0007\u0004\u0002\u0005\u0007\u0005\u0002\u0006\u0007\u0006\u0002\u0007"+
+		"\u0007\u0007\u0001\u0000\u0001\u0000\u0001\u0000\u0001\u0000\u0005\u0000"+
+		"\u0016\b\u0000\n\u0000\f\u0000\u0019\t\u0000\u0001\u0000\u0001\u0000\u0001"+
+		"\u0000\u0001\u0000\u0001\u0000\u0005\u0000 \b\u0000\n\u0000\f\u0000#\t"+
+		"\u0000\u0001\u0000\u0003\u0000&\b\u0000\u0001\u0001\u0001\u0001\u0005"+
+		"\u0001*\b\u0001\n\u0001\f\u0001-\t\u0001\u0001\u0002\u0001\u0002\u0001"+
+		"\u0003\u0001\u0003\u0001\u0004\u0001\u0004\u0001\u0005\u0001\u0005\u0001"+
+		"\u0006\u0004\u00068\b\u0006\u000b\u0006\f\u00069\u0001\u0007\u0004\u0007"+
+		"=\b\u0007\u000b\u0007\f\u0007>\u0000\u0000\b\u0001\u0001\u0003\u0002\u0005"+
+		"\u0003\u0007\u0004\t\u0005\u000b\u0006\r\u0007\u000f\b\u0001\u0000\u0006"+
+		"\u0001\u0000\"\"\u0001\u0000\'\'\u0002\u0000AZaz\u0004\u000009AZ__az\u0004"+
+		"\u0000  (),,::\u0003\u0000\t\n\r\r  G\u0000\u0001\u0001\u0000\u0000\u0000"+
+		"\u0000\u0003\u0001\u0000\u0000\u0000\u0000\u0005\u0001\u0000\u0000\u0000"+
+		"\u0000\u0007\u0001\u0000\u0000\u0000\u0000\t\u0001\u0000\u0000\u0000\u0000"+
+		"\u000b\u0001\u0000\u0000\u0000\u0000\r\u0001\u0000\u0000\u0000\u0000\u000f"+
+		"\u0001\u0000\u0000\u0000\u0001%\u0001\u0000\u0000\u0000\u0003\'\u0001"+
+		"\u0000\u0000\u0000\u0005.\u0001\u0000\u0000\u0000\u00070\u0001\u0000\u0000"+
+		"\u0000\t2\u0001\u0000\u0000\u0000\u000b4\u0001\u0000\u0000\u0000\r7\u0001"+
+		"\u0000\u0000\u0000\u000f<\u0001\u0000\u0000\u0000\u0011\u0017\u0005\""+
+		"\u0000\u0000\u0012\u0013\u0005\\\u0000\u0000\u0013\u0016\u0005\"\u0000"+
+		"\u0000\u0014\u0016\b\u0000\u0000\u0000\u0015\u0012\u0001\u0000\u0000\u0000"+
+		"\u0015\u0014\u0001\u0000\u0000\u0000\u0016\u0019\u0001\u0000\u0000\u0000"+
+		"\u0017\u0015\u0001\u0000\u0000\u0000\u0017\u0018\u0001\u0000\u0000\u0000"+
+		"\u0018\u001a\u0001\u0000\u0000\u0000\u0019\u0017\u0001\u0000\u0000\u0000"+
+		"\u001a&\u0005\"\u0000\u0000\u001b!\u0005\'\u0000\u0000\u001c\u001d\u0005"+
+		"\\\u0000\u0000\u001d \u0005\'\u0000\u0000\u001e \b\u0001\u0000\u0000\u001f"+
+		"\u001c\u0001\u0000\u0000\u0000\u001f\u001e\u0001\u0000\u0000\u0000 #\u0001"+
+		"\u0000\u0000\u0000!\u001f\u0001\u0000\u0000\u0000!\"\u0001\u0000\u0000"+
+		"\u0000\"$\u0001\u0000\u0000\u0000#!\u0001\u0000\u0000\u0000$&\u0005\'"+
+		"\u0000\u0000%\u0011\u0001\u0000\u0000\u0000%\u001b\u0001\u0000\u0000\u0000"+
+		"&\u0002\u0001\u0000\u0000\u0000\'+\u0007\u0002\u0000\u0000(*\u0007\u0003"+
+		"\u0000\u0000)(\u0001\u0000\u0000\u0000*-\u0001\u0000\u0000\u0000+)\u0001"+
+		"\u0000\u0000\u0000+,\u0001\u0000\u0000\u0000,\u0004\u0001\u0000\u0000"+
+		"\u0000-+\u0001\u0000\u0000\u0000./\u0005:\u0000\u0000/\u0006\u0001\u0000"+
+		"\u0000\u000001\u0005,\u0000\u00001\b\u0001\u0000\u0000\u000023\u0005("+
+		"\u0000\u00003\n\u0001\u0000\u0000\u000045\u0005)\u0000\u00005\f\u0001"+
+		"\u0000\u0000\u000068\b\u0004\u0000\u000076\u0001\u0000\u0000\u000089\u0001"+
+		"\u0000\u0000\u000097\u0001\u0000\u0000\u00009:\u0001\u0000\u0000\u0000"+
+		":\u000e\u0001\u0000\u0000\u0000;=\u0007\u0005\u0000\u0000<;\u0001\u0000"+
+		"\u0000\u0000=>\u0001\u0000\u0000\u0000><\u0001\u0000\u0000\u0000>?\u0001"+
+		"\u0000\u0000\u0000?\u0010\u0001\u0000\u0000\u0000\t\u0000\u0015\u0017"+
+		"\u001f!%+9>\u0000";
 	public static final ATN _ATN =
 		new ATNDeserializer().deserialize(_serializedATN.toCharArray());
 	static {
