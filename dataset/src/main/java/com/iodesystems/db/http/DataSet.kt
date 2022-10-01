@@ -9,9 +9,9 @@ class DataSet {
   data class Request(
     var search: String? = null,
     var partition: String? = null,
-    val ordering: List<Order> = emptyList(),
-    var page: Int = 0,
-    var pageSize: Int = 0,
+    val ordering: List<Order>? = null,
+    var page: Int? = null,
+    var pageSize: Int? = null,
   )
 
   data class Response<T>(
@@ -29,15 +29,19 @@ class DataSet {
 
         val recordsTotal = dataSet.count()
 
-        if (request.ordering.isNotEmpty()) {
+        if (!request.ordering.isNullOrEmpty()) {
+          dataSet = dataSet.clearOrder()
           for (ordering in request.ordering) {
             dataSet = dataSet.order(
               ordering.field, if (Order.Direction.ASC == ordering.order) SortOrder.ASC else SortOrder.DESC
             )
           }
         }
-        val data = dataSet.page(request.page, request.pageSize)
-        if (data.size < request.pageSize) {
+        val page = request.page ?: 0
+        val pageSize = request.pageSize ?: 50
+
+        val data = dataSet.page(page, pageSize)
+        if (data.size < pageSize) {
           data.size
         } else {
           dataSet.clearOrder().count()
@@ -71,7 +75,7 @@ class DataSet {
               primaryKey = field.primaryKey
             )
           },
-          data = dataSet.page(request.page, request.pageSize)
+          data = dataSet.page(page, pageSize)
         )
       }
     }
@@ -85,7 +89,7 @@ class DataSet {
       val sortDirection: Order.Direction?,
       val primaryKey: Boolean,
       val type: String?,
-      ) {
+    ) {
       override fun toString(): String {
         return name
       }
