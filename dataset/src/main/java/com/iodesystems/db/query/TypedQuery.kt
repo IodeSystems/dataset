@@ -231,7 +231,6 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     val field: Field<T>,
     val name: String = field.name,
     val title: String = name,
-    var mapping: String = name,
     val orderable: Boolean = false,
     val search: ((String) -> Condition?)? = null,
     val primaryKey: Boolean = false,
@@ -241,7 +240,6 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
       val field: Field<T>,
       var name: String = field.name,
       var title: String = name,
-      var mapping: String? = null,
       var orderable: Boolean = false,
       var search: ((String) -> Condition?)? = null,
       var primaryKey: Boolean = false,
@@ -257,7 +255,6 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
           search = search,
           primaryKey = primaryKey,
           type = type,
-          mapping = mapping ?: name
         )
       }
     }
@@ -266,27 +263,30 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
   data class Builder<T : Table<R>, R : Record, M>(
     var query: TypedQuery<T, R, M>,
     var doDetectFields: Boolean = false,
-    var camelMapping: Boolean = false,
+    var camelMapping: Boolean = true,
   ) {
 
-    fun autoCamelMapping(set: Boolean = true) {
+    fun disableAutoCamelMapping(set: Boolean = true) {
       camelMapping = set
+    }
+
+    private fun mapFieldName(name: String): String {
+      if (!camelMapping) {
+        return name
+      }
+      return name
+        .lowercase()
+        .split("_")
+        .joinToString("") { it.replaceFirstChar { c -> c.uppercase() } }
+        .replaceFirstChar { it.lowercase() }
     }
 
     fun <T> field(
       field: Field<T>, init: (FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit)? = null
     ) {
       val builder = FieldConfiguration.Builder(field)
+      builder.name = mapFieldName(builder.name)
       init?.let { builder.it(field) }
-      if (builder.mapping === null) {
-        if (camelMapping) {
-          builder.mapping =
-            builder.name.lowercase().split("_").map { it.replaceFirstChar { c -> c.uppercase() } }.joinToString("")
-              .replaceFirstChar { it.lowercase() }
-        } else {
-          builder.mapping = builder.name
-        }
-      }
       query = query.copy(fields = query.fields + Pair(builder.name.lowercase(), builder.build()))
     }
 
@@ -307,13 +307,12 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
       typesOnly: Boolean = false
     ) {
       DataSet(db, query.limit(0)).result().recordType().fields().map { field ->
-        val fieldName = field.name.lowercase()
+        val fieldName = mapFieldName(field.name).lowercase()
         val existing = query.fields[fieldName]
         val dataType = field.dataType.converter.toType().simpleName
         if (existing == null) {
           if (!typesOnly) {
             field(field) {
-              name = fieldName
               type = dataType
             }
           }

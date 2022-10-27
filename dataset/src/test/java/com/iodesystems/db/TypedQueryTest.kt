@@ -16,6 +16,8 @@ import org.junit.Assert
 import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalDateTime
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 class TypedQueryTest {
   @Test
@@ -93,8 +95,7 @@ class TypedQueryTest {
       .set(TABLE_CREATED_AT, LocalDateTime.now())
       .execute()
 
-    val query = TypedQuery.forTable(DSL.table("(SELECT * FROM TEST_TABLE)"), {r->r.intoMap()}) {
-      autoCamelMapping()
+    val query = TypedQuery.forTable(DSL.table("(SELECT * FROM TEST_TABLE)"), { r -> r.intoMap() }) {
       field(TABLE_ID) { field ->
         orderable = true
         search = {
@@ -110,29 +111,47 @@ class TypedQueryTest {
         search = { f.contains(it) }
       }
       field(TABLE_CREATED_AT) { f ->
-        search = {
-          if (it.lowercase() == "today") {
+        search = { s ->
+          if (s.lowercase() == "today") {
             DSL.trunc(f).cast(LocalDate::class.java).eq(LocalDate.now())
           } else {
             null
           }
         }
       }
-      search("testSearch") { s, _t ->
+      search("testSearch") { s, _ ->
         DSL.value("abc").eq(s)
       }
       autoDetectFields(db)
     }
     val data = query.data(db)
 
-    val req = DataSet.Request()
+    val req = DataSet.Request(
+      showColumns = true,
+      showCounts = true,
+      search = "testSearch:x",
+      partition = "mane:DERP"
+    )
     val rsp = DataSet.Response.fromRequest(db, query, req)
-    assertEquals(rsp.columns.size, 4)
-    assertEquals(rsp.columns[0].mapping, "id")
-    assertEquals(rsp.columns[1].mapping, "name")
-    assertEquals(rsp.columns[2].mapping, "createdAt")
-    assertEquals(rsp.columns[3].mapping, "autoDetect")
+    val counts = rsp.count
+    assertNotNull(counts)
+    assertEquals(counts.inQuery, 0)
+    assertEquals(counts.inPartition, 3)
+    val columns = rsp.columns
+    assertNotNull(columns)
+    assertEquals(columns.size, 4)
+    assertEquals(columns[0].name, "id")
+    assertEquals(columns[1].name, "name")
+    assertEquals(columns[2].name, "createdAt")
+    assertEquals(columns[3].name, "autoDetect")
 
+    val rsp2 = DataSet.Response.fromRequest(db, query, DataSet.Request(
+      partition = "mane:DERP",
+      pageSize = 1
+    ))
+    assertNull(rsp2.columns)
+    assertNull(rsp2.count)
+    assertEquals(rsp2.data.size, 1)
 
     // Test searching fields
     assertEquals(0, data.search("asdf").count())
@@ -150,12 +169,12 @@ class TypedQueryTest {
     assertEquals(4, data.search("testSearch:abc").count())
 
     // Test targeted search on fields
-    assertEquals(1, data.search("ID:1").count())
-    assertEquals(3, data.search("ID:(1,2,3)").count())
-    assertEquals(0, data.search("ID:(1 3)").count())
+    assertEquals(1, data.search("id:1").count())
+    assertEquals(3, data.search("id:(1,2,3)").count())
+    assertEquals(0, data.search("id:(1 3)").count())
     assertEquals(2, data.search("today").count())
-    assertEquals(2, data.search("CREATED_AT:today").count())
-    assertEquals(1, data.search("CREATED_AT:today ID:1").count())
-    assertEquals(3, data.search("CREATED_AT:today, ID:3").count())
+    assertEquals(2, data.search("createdAt:today").count())
+    assertEquals(1, data.search("createdAt:today ID:1").count())
+    assertEquals(3, data.search("createdAt:today, ID:3").count())
   }
 }
