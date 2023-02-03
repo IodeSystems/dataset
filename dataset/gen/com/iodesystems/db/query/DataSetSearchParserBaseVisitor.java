@@ -3,7 +3,7 @@ package com.iodesystems.db.query;
 import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;
 
 /**
- * This class provides an empty implementation of {@link DataSetSearchVisitor},
+ * This class provides an empty implementation of {@link DataSetSearchParserVisitor},
  * which can be extended to create a visitor which only needs to handle a subset
  * of the available methods.
  *
@@ -11,7 +11,7 @@ import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;
  * operations with no return type.
  */
 @SuppressWarnings("CheckReturnValue")
-public class DataSetSearchBaseVisitor<T> extends AbstractParseTreeVisitor<T> implements DataSetSearchVisitor<T> {
+public class DataSetSearchParserBaseVisitor<T> extends AbstractParseTreeVisitor<T> implements DataSetSearchParserVisitor<T> {
 	/**
 	 * {@inheritDoc}
 	 *

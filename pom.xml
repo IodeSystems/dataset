@@ -31,7 +31,11 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <kotlin.version>1.7.10</kotlin.version>
+    <maven.compiler.source>19</maven.compiler.source>
+    <maven.compiler.target>${maven.compiler.source}</maven.compiler.target>
+    <kotlin.compiler.incremental>true</kotlin.compiler.incremental>
+    <kotlin.version>1.8.10</kotlin.version>
+    <jooq.version>3.17.7</jooq.version>
   </properties>
 
   <scm>
@@ -61,6 +65,7 @@
             </executions>
           </plugin>
           <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-release-plugin</artifactId>
             <version>2.5.3</version>
           </plugin>
@@ -125,11 +130,13 @@
           <artifactId>versions-maven-plugin</artifactId>
           <version>2.12.0</version>
           <configuration>
+            <!--suppress UnresolvedMavenProperty -->
             <rulesUri>file://${session.executionRootDirectory}/mvn-version-rules.xml</rulesUri>
           </configuration>
         </plugin>
       <plugin>
         <inherited>true</inherited>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.10.1</version>
         <configuration>
@@ -140,6 +147,7 @@
       </plugin>
       <plugin>
         <inherited>true</inherited>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-source-plugin</artifactId>
         <version>3.2.1</version>
         <executions>

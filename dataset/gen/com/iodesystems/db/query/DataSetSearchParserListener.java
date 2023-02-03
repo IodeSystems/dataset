@@ -6,7 +6,7 @@ import org.antlr.v4.runtime.tree.ParseTreeListener;
  * This interface defines a complete listener for a parse tree produced by
  * {@link DataSetSearchParser}.
  */
-public interface DataSetSearchListener extends ParseTreeListener {
+public interface DataSetSearchParserListener extends ParseTreeListener {
 	/**
 	 * Enter a parse tree produced by {@link DataSetSearchParser#search}.
 	 * @param ctx the parse tree

@@ -17,8 +17,8 @@ public class DataSetSearchParser extends Parser {
 	protected static final PredictionContextCache _sharedContextCache =
 		new PredictionContextCache();
 	public static final int
-		STRING=1, TARGET=2, TARGET_SEPARATOR=3, TERM_OR=4, TERM_GROUP_START=5, 
-		TERM_GROUP_END=6, ANY=7, WS=8;
+		ESCAPED_CHAR=1, ESCAPE=2, ANY=3, STRING=4, TARGET_SEPARATOR=5, TERM_OR=6, 
+		TERM_GROUP_START=7, TERM_GROUP_END=8, WS=9, ESCAPED=10;
 	public static final int
 		RULE_search = 0, RULE_simpleTerm = 1, RULE_andTerm = 2, RULE_orTerm = 3, 
 		RULE_term = 4, RULE_termTarget = 5, RULE_termValueGroup = 6, RULE_simpleValue = 7, 
@@ -33,14 +33,14 @@ public class DataSetSearchParser extends Parser {
 
 	private static String[] makeLiteralNames() {
 		return new String[] {
-			null, null, null, "':'", "','", "'('", "')'"
+			null, null, "'\\'", null, null, "':'", "','", "'('", "')'"
 		};
 	}
 	private static final String[] _LITERAL_NAMES = makeLiteralNames();
 	private static String[] makeSymbolicNames() {
 		return new String[] {
-			null, "STRING", "TARGET", "TARGET_SEPARATOR", "TERM_OR", "TERM_GROUP_START", 
-			"TERM_GROUP_END", "ANY", "WS"
+			null, "ESCAPED_CHAR", "ESCAPE", "ANY", "STRING", "TARGET_SEPARATOR", 
+			"TERM_OR", "TERM_GROUP_START", "TERM_GROUP_END", "WS", "ESCAPED"
 		};
 	}
 	private static final String[] _SYMBOLIC_NAMES = makeSymbolicNames();
@@ -123,15 +123,15 @@ public class DataSetSearchParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_search; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).enterSearch(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).enterSearch(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).exitSearch(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).exitSearch(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof DataSetSearchVisitor ) return ((DataSetSearchVisitor<? extends T>)visitor).visitSearch(this);
+			if ( visitor instanceof DataSetSearchParserVisitor ) return ((DataSetSearchParserVisitor<? extends T>)visitor).visitSearch(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -252,15 +252,15 @@ public class DataSetSearchParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_simpleTerm; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).enterSimpleTerm(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).enterSimpleTerm(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).exitSimpleTerm(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).exitSimpleTerm(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof DataSetSearchVisitor ) return ((DataSetSearchVisitor<? extends T>)visitor).visitSimpleTerm(this);
+			if ( visitor instanceof DataSetSearchParserVisitor ) return ((DataSetSearchParserVisitor<? extends T>)visitor).visitSimpleTerm(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -333,15 +333,15 @@ public class DataSetSearchParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_andTerm; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).enterAndTerm(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).enterAndTerm(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).exitAndTerm(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).exitAndTerm(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof DataSetSearchVisitor ) return ((DataSetSearchVisitor<? extends T>)visitor).visitAndTerm(this);
+			if ( visitor instanceof DataSetSearchParserVisitor ) return ((DataSetSearchParserVisitor<? extends T>)visitor).visitAndTerm(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -398,15 +398,15 @@ public class DataSetSearchParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_orTerm; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).enterOrTerm(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).enterOrTerm(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).exitOrTerm(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).exitOrTerm(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof DataSetSearchVisitor ) return ((DataSetSearchVisitor<? extends T>)visitor).visitOrTerm(this);
+			if ( visitor instanceof DataSetSearchParserVisitor ) return ((DataSetSearchParserVisitor<? extends T>)visitor).visitOrTerm(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -434,21 +434,21 @@ public class DataSetSearchParser extends Parser {
 			}
 			setState(77);
 			match(TERM_OR);
-			setState(79); 
+			setState(81);
 			_errHandler.sync(this);
 			_la = _input.LA(1);
-			do {
+			while (_la==WS) {
 				{
 				{
 				setState(78);
 				match(WS);
 				}
 				}
-				setState(81); 
+				setState(83);
 				_errHandler.sync(this);
 				_la = _input.LA(1);
-			} while ( _la==WS );
-			setState(83);
+			}
+			setState(84);
 			term();
 			}
 		}
@@ -482,15 +482,15 @@ public class DataSetSearchParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_term; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).enterTerm(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).enterTerm(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).exitTerm(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).exitTerm(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof DataSetSearchVisitor ) return ((DataSetSearchVisitor<? extends T>)visitor).visitTerm(this);
+			if ( visitor instanceof DataSetSearchParserVisitor ) return ((DataSetSearchParserVisitor<? extends T>)visitor).visitTerm(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -502,33 +502,33 @@ public class DataSetSearchParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(93);
+			setState(94);
 			_errHandler.sync(this);
 			switch ( getInterpreter().adaptivePredict(_input,12,_ctx) ) {
 			case 1:
 				{
-				setState(85);
-				termTarget();
 				setState(86);
+				termTarget();
+				setState(87);
 				match(TARGET_SEPARATOR);
-				setState(90);
+				setState(91);
 				_errHandler.sync(this);
 				_la = _input.LA(1);
 				while (_la==WS) {
 					{
 					{
-					setState(87);
+					setState(88);
 					match(WS);
 					}
 					}
-					setState(92);
+					setState(93);
 					_errHandler.sync(this);
 					_la = _input.LA(1);
 				}
 				}
 				break;
 			}
-			setState(95);
+			setState(96);
 			termValueGroup();
 			}
 		}
@@ -545,7 +545,7 @@ public class DataSetSearchParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class TermTargetContext extends ParserRuleContext {
-		public TerminalNode TARGET() { return getToken(DataSetSearchParser.TARGET, 0); }
+		public TerminalNode ANY() { return getToken(DataSetSearchParser.ANY, 0); }
 		public TerminalNode STRING() { return getToken(DataSetSearchParser.STRING, 0); }
 		public TermTargetContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
@@ -553,15 +553,15 @@ public class DataSetSearchParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_termTarget; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).enterTermTarget(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).enterTermTarget(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).exitTermTarget(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).exitTermTarget(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof DataSetSearchVisitor ) return ((DataSetSearchVisitor<? extends T>)visitor).visitTermTarget(this);
+			if ( visitor instanceof DataSetSearchParserVisitor ) return ((DataSetSearchParserVisitor<? extends T>)visitor).visitTermTarget(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -573,9 +573,9 @@ public class DataSetSearchParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(97);
+			setState(98);
 			_la = _input.LA(1);
-			if ( !(_la==STRING || _la==TARGET) ) {
+			if ( !(_la==ANY || _la==STRING) ) {
 			_errHandler.recoverInline(this);
 			}
 			else {
@@ -631,15 +631,15 @@ public class DataSetSearchParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_termValueGroup; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).enterTermValueGroup(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).enterTermValueGroup(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).exitTermValueGroup(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).exitTermValueGroup(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof DataSetSearchVisitor ) return ((DataSetSearchVisitor<? extends T>)visitor).visitTermValueGroup(this);
+			if ( visitor instanceof DataSetSearchParserVisitor ) return ((DataSetSearchParserVisitor<? extends T>)visitor).visitTermValueGroup(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -650,120 +650,120 @@ public class DataSetSearchParser extends Parser {
 		int _la;
 		try {
 			int _alt;
-			setState(136);
+			setState(137);
 			_errHandler.sync(this);
 			switch (_input.LA(1)) {
 			case TERM_GROUP_START:
 				enterOuterAlt(_localctx, 1);
 				{
-				setState(99);
+				setState(100);
 				match(TERM_GROUP_START);
-				setState(103);
+				setState(104);
 				_errHandler.sync(this);
 				_la = _input.LA(1);
 				while (_la==WS) {
 					{
 					{
-					setState(100);
+					setState(101);
 					match(WS);
 					}
 					}
-					setState(105);
+					setState(106);
 					_errHandler.sync(this);
 					_la = _input.LA(1);
 				}
-				setState(126);
+				setState(127);
 				_errHandler.sync(this);
 				_la = _input.LA(1);
-				if (((_la) & ~0x3f) == 0 && ((1L << _la) & 134L) != 0) {
+				if (((_la) & ~0x3f) == 0 && ((1L << _la) & 26L) != 0) {
 					{
-					setState(106);
+					setState(107);
 					simpleValue();
-					setState(110);
+					setState(111);
 					_errHandler.sync(this);
 					_alt = getInterpreter().adaptivePredict(_input,14,_ctx);
 					while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
 						if ( _alt==1 ) {
 							{
 							{
-							setState(107);
+							setState(108);
 							match(WS);
 							}
 							} 
 						}
-						setState(112);
+						setState(113);
 						_errHandler.sync(this);
 						_alt = getInterpreter().adaptivePredict(_input,14,_ctx);
 					}
-					setState(117);
+					setState(118);
 					_errHandler.sync(this);
 					_alt = getInterpreter().adaptivePredict(_input,16,_ctx);
 					while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
 						if ( _alt==1 ) {
 							{
-							setState(115);
+							setState(116);
 							_errHandler.sync(this);
 							switch ( getInterpreter().adaptivePredict(_input,15,_ctx) ) {
 							case 1:
 								{
-								setState(113);
+								setState(114);
 								andValue();
 								}
 								break;
 							case 2:
 								{
-								setState(114);
+								setState(115);
 								orValue();
 								}
 								break;
 							}
 							} 
 						}
-						setState(119);
+						setState(120);
 						_errHandler.sync(this);
 						_alt = getInterpreter().adaptivePredict(_input,16,_ctx);
 					}
-					setState(123);
+					setState(124);
 					_errHandler.sync(this);
 					_la = _input.LA(1);
 					while (_la==WS) {
 						{
 						{
-						setState(120);
+						setState(121);
 						match(WS);
 						}
 						}
-						setState(125);
+						setState(126);
 						_errHandler.sync(this);
 						_la = _input.LA(1);
 					}
 					}
 				}
 
-				setState(128);
+				setState(129);
 				match(TERM_GROUP_END);
 				}
 				break;
-			case STRING:
-			case TARGET:
+			case ESCAPED_CHAR:
 			case ANY:
+			case STRING:
 				enterOuterAlt(_localctx, 2);
 				{
-				setState(129);
+				setState(130);
 				simpleValue();
-				setState(133);
+				setState(134);
 				_errHandler.sync(this);
 				_alt = getInterpreter().adaptivePredict(_input,19,_ctx);
 				while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
 					if ( _alt==1 ) {
 						{
 						{
-						setState(130);
+						setState(131);
 						unprotectedOrValue();
 						}
 						} 
 					}
-					setState(135);
+					setState(136);
 					_errHandler.sync(this);
 					_alt = getInterpreter().adaptivePredict(_input,19,_ctx);
 				}
@@ -795,15 +795,15 @@ public class DataSetSearchParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_simpleValue; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).enterSimpleValue(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).enterSimpleValue(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).exitSimpleValue(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).exitSimpleValue(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof DataSetSearchVisitor ) return ((DataSetSearchVisitor<? extends T>)visitor).visitSimpleValue(this);
+			if ( visitor instanceof DataSetSearchParserVisitor ) return ((DataSetSearchParserVisitor<? extends T>)visitor).visitSimpleValue(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -814,7 +814,7 @@ public class DataSetSearchParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(138);
+			setState(139);
 			termValue();
 			}
 		}
@@ -832,23 +832,23 @@ public class DataSetSearchParser extends Parser {
 	@SuppressWarnings("CheckReturnValue")
 	public static class TermValueContext extends ParserRuleContext {
 		public TerminalNode STRING() { return getToken(DataSetSearchParser.STRING, 0); }
-		public TerminalNode TARGET() { return getToken(DataSetSearchParser.TARGET, 0); }
 		public TerminalNode ANY() { return getToken(DataSetSearchParser.ANY, 0); }
+		public TerminalNode ESCAPED_CHAR() { return getToken(DataSetSearchParser.ESCAPED_CHAR, 0); }
 		public TermValueContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_termValue; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).enterTermValue(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).enterTermValue(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).exitTermValue(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).exitTermValue(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof DataSetSearchVisitor ) return ((DataSetSearchVisitor<? extends T>)visitor).visitTermValue(this);
+			if ( visitor instanceof DataSetSearchParserVisitor ) return ((DataSetSearchParserVisitor<? extends T>)visitor).visitTermValue(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -860,9 +860,9 @@ public class DataSetSearchParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(140);
+			setState(141);
 			_la = _input.LA(1);
-			if ( !(((_la) & ~0x3f) == 0 && ((1L << _la) & 134L) != 0) ) {
+			if ( !(((_la) & ~0x3f) == 0 && ((1L << _la) & 26L) != 0) ) {
 			_errHandler.recoverInline(this);
 			}
 			else {
@@ -898,15 +898,15 @@ public class DataSetSearchParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_andValue; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).enterAndValue(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).enterAndValue(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).exitAndValue(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).exitAndValue(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof DataSetSearchVisitor ) return ((DataSetSearchVisitor<? extends T>)visitor).visitAndValue(this);
+			if ( visitor instanceof DataSetSearchParserVisitor ) return ((DataSetSearchParserVisitor<? extends T>)visitor).visitAndValue(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -918,21 +918,21 @@ public class DataSetSearchParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(143); 
+			setState(144); 
 			_errHandler.sync(this);
 			_la = _input.LA(1);
 			do {
 				{
 				{
-				setState(142);
+				setState(143);
 				match(WS);
 				}
 				}
-				setState(145); 
+				setState(146); 
 				_errHandler.sync(this);
 				_la = _input.LA(1);
 			} while ( _la==WS );
-			setState(147);
+			setState(148);
 			termValue();
 			}
 		}
@@ -963,15 +963,15 @@ public class DataSetSearchParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_orValue; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).enterOrValue(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).enterOrValue(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).exitOrValue(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).exitOrValue(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof DataSetSearchVisitor ) return ((DataSetSearchVisitor<? extends T>)visitor).visitOrValue(this);
+			if ( visitor instanceof DataSetSearchParserVisitor ) return ((DataSetSearchParserVisitor<? extends T>)visitor).visitOrValue(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -983,37 +983,37 @@ public class DataSetSearchParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(152);
+			setState(153);
 			_errHandler.sync(this);
 			_la = _input.LA(1);
 			while (_la==WS) {
 				{
 				{
-				setState(149);
+				setState(150);
 				match(WS);
 				}
 				}
-				setState(154);
+				setState(155);
 				_errHandler.sync(this);
 				_la = _input.LA(1);
 			}
-			setState(155);
+			setState(156);
 			match(TERM_OR);
-			setState(159);
+			setState(160);
 			_errHandler.sync(this);
 			_la = _input.LA(1);
 			while (_la==WS) {
 				{
 				{
-				setState(156);
+				setState(157);
 				match(WS);
 				}
 				}
-				setState(161);
+				setState(162);
 				_errHandler.sync(this);
 				_la = _input.LA(1);
 			}
-			setState(162);
+			setState(163);
 			termValue();
 			}
 		}
@@ -1040,15 +1040,15 @@ public class DataSetSearchParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_unprotectedOrValue; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).enterUnprotectedOrValue(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).enterUnprotectedOrValue(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof DataSetSearchListener ) ((DataSetSearchListener)listener).exitUnprotectedOrValue(this);
+			if ( listener instanceof DataSetSearchParserListener ) ((DataSetSearchParserListener)listener).exitUnprotectedOrValue(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof DataSetSearchVisitor ) return ((DataSetSearchVisitor<? extends T>)visitor).visitUnprotectedOrValue(this);
+			if ( visitor instanceof DataSetSearchParserVisitor ) return ((DataSetSearchParserVisitor<? extends T>)visitor).visitUnprotectedOrValue(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -1059,9 +1059,9 @@ public class DataSetSearchParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(164);
-			match(TERM_OR);
 			setState(165);
+			match(TERM_OR);
+			setState(166);
 			termValue();
 			}
 		}
@@ -1077,7 +1077,7 @@ public class DataSetSearchParser extends Parser {
 	}
 
 	public static final String _serializedATN =
-		"\u0004\u0001\b\u00a8\u0002\u0000\u0007\u0000\u0002\u0001\u0007\u0001\u0002"+
+		"\u0004\u0001\n\u00a9\u0002\u0000\u0007\u0000\u0002\u0001\u0007\u0001\u0002"+
 		"\u0002\u0007\u0002\u0002\u0003\u0007\u0003\u0002\u0004\u0007\u0004\u0002"+
 		"\u0005\u0007\u0005\u0002\u0006\u0007\u0006\u0002\u0007\u0007\u0007\u0002"+
 		"\b\u0007\b\u0002\t\u0007\t\u0002\n\u0007\n\u0002\u000b\u0007\u000b\u0001"+
@@ -1089,94 +1089,95 @@ public class DataSetSearchParser extends Parser {
 		"\u0001\u0001\u0005\u0001<\b\u0001\n\u0001\f\u0001?\t\u0001\u0001\u0002"+
 		"\u0004\u0002B\b\u0002\u000b\u0002\f\u0002C\u0001\u0002\u0001\u0002\u0001"+
 		"\u0003\u0005\u0003I\b\u0003\n\u0003\f\u0003L\t\u0003\u0001\u0003\u0001"+
-		"\u0003\u0004\u0003P\b\u0003\u000b\u0003\f\u0003Q\u0001\u0003\u0001\u0003"+
-		"\u0001\u0004\u0001\u0004\u0001\u0004\u0005\u0004Y\b\u0004\n\u0004\f\u0004"+
-		"\\\t\u0004\u0003\u0004^\b\u0004\u0001\u0004\u0001\u0004\u0001\u0005\u0001"+
-		"\u0005\u0001\u0006\u0001\u0006\u0005\u0006f\b\u0006\n\u0006\f\u0006i\t"+
-		"\u0006\u0001\u0006\u0001\u0006\u0005\u0006m\b\u0006\n\u0006\f\u0006p\t"+
-		"\u0006\u0001\u0006\u0001\u0006\u0005\u0006t\b\u0006\n\u0006\f\u0006w\t"+
-		"\u0006\u0001\u0006\u0005\u0006z\b\u0006\n\u0006\f\u0006}\t\u0006\u0003"+
-		"\u0006\u007f\b\u0006\u0001\u0006\u0001\u0006\u0001\u0006\u0005\u0006\u0084"+
-		"\b\u0006\n\u0006\f\u0006\u0087\t\u0006\u0003\u0006\u0089\b\u0006\u0001"+
-		"\u0007\u0001\u0007\u0001\b\u0001\b\u0001\t\u0004\t\u0090\b\t\u000b\t\f"+
-		"\t\u0091\u0001\t\u0001\t\u0001\n\u0005\n\u0097\b\n\n\n\f\n\u009a\t\n\u0001"+
-		"\n\u0001\n\u0005\n\u009e\b\n\n\n\f\n\u00a1\t\n\u0001\n\u0001\n\u0001\u000b"+
+		"\u0003\u0005\u0003P\b\u0003\n\u0003\f\u0003S\t\u0003\u0001\u0003\u0001"+
+		"\u0003\u0001\u0004\u0001\u0004\u0001\u0004\u0005\u0004Z\b\u0004\n\u0004"+
+		"\f\u0004]\t\u0004\u0003\u0004_\b\u0004\u0001\u0004\u0001\u0004\u0001\u0005"+
+		"\u0001\u0005\u0001\u0006\u0001\u0006\u0005\u0006g\b\u0006\n\u0006\f\u0006"+
+		"j\t\u0006\u0001\u0006\u0001\u0006\u0005\u0006n\b\u0006\n\u0006\f\u0006"+
+		"q\t\u0006\u0001\u0006\u0001\u0006\u0005\u0006u\b\u0006\n\u0006\f\u0006"+
+		"x\t\u0006\u0001\u0006\u0005\u0006{\b\u0006\n\u0006\f\u0006~\t\u0006\u0003"+
+		"\u0006\u0080\b\u0006\u0001\u0006\u0001\u0006\u0001\u0006\u0005\u0006\u0085"+
+		"\b\u0006\n\u0006\f\u0006\u0088\t\u0006\u0003\u0006\u008a\b\u0006\u0001"+
+		"\u0007\u0001\u0007\u0001\b\u0001\b\u0001\t\u0004\t\u0091\b\t\u000b\t\f"+
+		"\t\u0092\u0001\t\u0001\t\u0001\n\u0005\n\u0098\b\n\n\n\f\n\u009b\t\n\u0001"+
+		"\n\u0001\n\u0005\n\u009f\b\n\n\n\f\n\u00a2\t\n\u0001\n\u0001\n\u0001\u000b"+
 		"\u0001\u000b\u0001\u000b\u0001\u000b\u0000\u0000\f\u0000\u0002\u0004\u0006"+
-		"\b\n\f\u000e\u0010\u0012\u0014\u0016\u0000\u0002\u0001\u0000\u0001\u0002"+
-		"\u0002\u0000\u0001\u0002\u0007\u0007\u00b3\u0000 \u0001\u0000\u0000\u0000"+
+		"\b\n\f\u000e\u0010\u0012\u0014\u0016\u0000\u0002\u0001\u0000\u0003\u0004"+
+		"\u0002\u0000\u0001\u0001\u0003\u0004\u00b4\u0000 \u0001\u0000\u0000\u0000"+
 		"\u00026\u0001\u0000\u0000\u0000\u0004A\u0001\u0000\u0000\u0000\u0006J"+
-		"\u0001\u0000\u0000\u0000\b]\u0001\u0000\u0000\u0000\na\u0001\u0000\u0000"+
-		"\u0000\f\u0088\u0001\u0000\u0000\u0000\u000e\u008a\u0001\u0000\u0000\u0000"+
-		"\u0010\u008c\u0001\u0000\u0000\u0000\u0012\u008f\u0001\u0000\u0000\u0000"+
-		"\u0014\u0098\u0001\u0000\u0000\u0000\u0016\u00a4\u0001\u0000\u0000\u0000"+
+		"\u0001\u0000\u0000\u0000\b^\u0001\u0000\u0000\u0000\nb\u0001\u0000\u0000"+
+		"\u0000\f\u0089\u0001\u0000\u0000\u0000\u000e\u008b\u0001\u0000\u0000\u0000"+
+		"\u0010\u008d\u0001\u0000\u0000\u0000\u0012\u0090\u0001\u0000\u0000\u0000"+
+		"\u0014\u0099\u0001\u0000\u0000\u0000\u0016\u00a5\u0001\u0000\u0000\u0000"+
 		"\u0018\u001d\u0003\u0002\u0001\u0000\u0019\u001c\u0003\u0004\u0002\u0000"+
 		"\u001a\u001c\u0003\u0006\u0003\u0000\u001b\u0019\u0001\u0000\u0000\u0000"+
 		"\u001b\u001a\u0001\u0000\u0000\u0000\u001c\u001f\u0001\u0000\u0000\u0000"+
 		"\u001d\u001b\u0001\u0000\u0000\u0000\u001d\u001e\u0001\u0000\u0000\u0000"+
 		"\u001e!\u0001\u0000\u0000\u0000\u001f\u001d\u0001\u0000\u0000\u0000 \u0018"+
 		"\u0001\u0000\u0000\u0000 !\u0001\u0000\u0000\u0000!%\u0001\u0000\u0000"+
-		"\u0000\"$\u0005\b\u0000\u0000#\"\u0001\u0000\u0000\u0000$\'\u0001\u0000"+
+		"\u0000\"$\u0005\t\u0000\u0000#\"\u0001\u0000\u0000\u0000$\'\u0001\u0000"+
 		"\u0000\u0000%#\u0001\u0000\u0000\u0000%&\u0001\u0000\u0000\u0000&)\u0001"+
-		"\u0000\u0000\u0000\'%\u0001\u0000\u0000\u0000(*\u0005\u0004\u0000\u0000"+
+		"\u0000\u0000\u0000\'%\u0001\u0000\u0000\u0000(*\u0005\u0006\u0000\u0000"+
 		")(\u0001\u0000\u0000\u0000)*\u0001\u0000\u0000\u0000*.\u0001\u0000\u0000"+
-		"\u0000+-\u0005\b\u0000\u0000,+\u0001\u0000\u0000\u0000-0\u0001\u0000\u0000"+
+		"\u0000+-\u0005\t\u0000\u0000,+\u0001\u0000\u0000\u0000-0\u0001\u0000\u0000"+
 		"\u0000.,\u0001\u0000\u0000\u0000./\u0001\u0000\u0000\u0000/1\u0001\u0000"+
 		"\u0000\u00000.\u0001\u0000\u0000\u000012\u0005\u0000\u0000\u00012\u0001"+
-		"\u0001\u0000\u0000\u000035\u0005\b\u0000\u000043\u0001\u0000\u0000\u0000"+
+		"\u0001\u0000\u0000\u000035\u0005\t\u0000\u000043\u0001\u0000\u0000\u0000"+
 		"58\u0001\u0000\u0000\u000064\u0001\u0000\u0000\u000067\u0001\u0000\u0000"+
 		"\u000079\u0001\u0000\u0000\u000086\u0001\u0000\u0000\u00009=\u0003\b\u0004"+
-		"\u0000:<\u0005\b\u0000\u0000;:\u0001\u0000\u0000\u0000<?\u0001\u0000\u0000"+
+		"\u0000:<\u0005\t\u0000\u0000;:\u0001\u0000\u0000\u0000<?\u0001\u0000\u0000"+
 		"\u0000=;\u0001\u0000\u0000\u0000=>\u0001\u0000\u0000\u0000>\u0003\u0001"+
-		"\u0000\u0000\u0000?=\u0001\u0000\u0000\u0000@B\u0005\b\u0000\u0000A@\u0001"+
+		"\u0000\u0000\u0000?=\u0001\u0000\u0000\u0000@B\u0005\t\u0000\u0000A@\u0001"+
 		"\u0000\u0000\u0000BC\u0001\u0000\u0000\u0000CA\u0001\u0000\u0000\u0000"+
 		"CD\u0001\u0000\u0000\u0000DE\u0001\u0000\u0000\u0000EF\u0003\b\u0004\u0000"+
-		"F\u0005\u0001\u0000\u0000\u0000GI\u0005\b\u0000\u0000HG\u0001\u0000\u0000"+
+		"F\u0005\u0001\u0000\u0000\u0000GI\u0005\t\u0000\u0000HG\u0001\u0000\u0000"+
 		"\u0000IL\u0001\u0000\u0000\u0000JH\u0001\u0000\u0000\u0000JK\u0001\u0000"+
-		"\u0000\u0000KM\u0001\u0000\u0000\u0000LJ\u0001\u0000\u0000\u0000MO\u0005"+
-		"\u0004\u0000\u0000NP\u0005\b\u0000\u0000ON\u0001\u0000\u0000\u0000PQ\u0001"+
+		"\u0000\u0000KM\u0001\u0000\u0000\u0000LJ\u0001\u0000\u0000\u0000MQ\u0005"+
+		"\u0006\u0000\u0000NP\u0005\t\u0000\u0000ON\u0001\u0000\u0000\u0000PS\u0001"+
 		"\u0000\u0000\u0000QO\u0001\u0000\u0000\u0000QR\u0001\u0000\u0000\u0000"+
-		"RS\u0001\u0000\u0000\u0000ST\u0003\b\u0004\u0000T\u0007\u0001\u0000\u0000"+
-		"\u0000UV\u0003\n\u0005\u0000VZ\u0005\u0003\u0000\u0000WY\u0005\b\u0000"+
-		"\u0000XW\u0001\u0000\u0000\u0000Y\\\u0001\u0000\u0000\u0000ZX\u0001\u0000"+
-		"\u0000\u0000Z[\u0001\u0000\u0000\u0000[^\u0001\u0000\u0000\u0000\\Z\u0001"+
-		"\u0000\u0000\u0000]U\u0001\u0000\u0000\u0000]^\u0001\u0000\u0000\u0000"+
-		"^_\u0001\u0000\u0000\u0000_`\u0003\f\u0006\u0000`\t\u0001\u0000\u0000"+
-		"\u0000ab\u0007\u0000\u0000\u0000b\u000b\u0001\u0000\u0000\u0000cg\u0005"+
-		"\u0005\u0000\u0000df\u0005\b\u0000\u0000ed\u0001\u0000\u0000\u0000fi\u0001"+
-		"\u0000\u0000\u0000ge\u0001\u0000\u0000\u0000gh\u0001\u0000\u0000\u0000"+
-		"h~\u0001\u0000\u0000\u0000ig\u0001\u0000\u0000\u0000jn\u0003\u000e\u0007"+
-		"\u0000km\u0005\b\u0000\u0000lk\u0001\u0000\u0000\u0000mp\u0001\u0000\u0000"+
-		"\u0000nl\u0001\u0000\u0000\u0000no\u0001\u0000\u0000\u0000ou\u0001\u0000"+
-		"\u0000\u0000pn\u0001\u0000\u0000\u0000qt\u0003\u0012\t\u0000rt\u0003\u0014"+
-		"\n\u0000sq\u0001\u0000\u0000\u0000sr\u0001\u0000\u0000\u0000tw\u0001\u0000"+
-		"\u0000\u0000us\u0001\u0000\u0000\u0000uv\u0001\u0000\u0000\u0000v{\u0001"+
-		"\u0000\u0000\u0000wu\u0001\u0000\u0000\u0000xz\u0005\b\u0000\u0000yx\u0001"+
-		"\u0000\u0000\u0000z}\u0001\u0000\u0000\u0000{y\u0001\u0000\u0000\u0000"+
-		"{|\u0001\u0000\u0000\u0000|\u007f\u0001\u0000\u0000\u0000}{\u0001\u0000"+
-		"\u0000\u0000~j\u0001\u0000\u0000\u0000~\u007f\u0001\u0000\u0000\u0000"+
-		"\u007f\u0080\u0001\u0000\u0000\u0000\u0080\u0089\u0005\u0006\u0000\u0000"+
-		"\u0081\u0085\u0003\u000e\u0007\u0000\u0082\u0084\u0003\u0016\u000b\u0000"+
-		"\u0083\u0082\u0001\u0000\u0000\u0000\u0084\u0087\u0001\u0000\u0000\u0000"+
-		"\u0085\u0083\u0001\u0000\u0000\u0000\u0085\u0086\u0001\u0000\u0000\u0000"+
-		"\u0086\u0089\u0001\u0000\u0000\u0000\u0087\u0085\u0001\u0000\u0000\u0000"+
-		"\u0088c\u0001\u0000\u0000\u0000\u0088\u0081\u0001\u0000\u0000\u0000\u0089"+
-		"\r\u0001\u0000\u0000\u0000\u008a\u008b\u0003\u0010\b\u0000\u008b\u000f"+
-		"\u0001\u0000\u0000\u0000\u008c\u008d\u0007\u0001\u0000\u0000\u008d\u0011"+
-		"\u0001\u0000\u0000\u0000\u008e\u0090\u0005\b\u0000\u0000\u008f\u008e\u0001"+
-		"\u0000\u0000\u0000\u0090\u0091\u0001\u0000\u0000\u0000\u0091\u008f\u0001"+
-		"\u0000\u0000\u0000\u0091\u0092\u0001\u0000\u0000\u0000\u0092\u0093\u0001"+
-		"\u0000\u0000\u0000\u0093\u0094\u0003\u0010\b\u0000\u0094\u0013\u0001\u0000"+
-		"\u0000\u0000\u0095\u0097\u0005\b\u0000\u0000\u0096\u0095\u0001\u0000\u0000"+
-		"\u0000\u0097\u009a\u0001\u0000\u0000\u0000\u0098\u0096\u0001\u0000\u0000"+
-		"\u0000\u0098\u0099\u0001\u0000\u0000\u0000\u0099\u009b\u0001\u0000\u0000"+
-		"\u0000\u009a\u0098\u0001\u0000\u0000\u0000\u009b\u009f\u0005\u0004\u0000"+
-		"\u0000\u009c\u009e\u0005\b\u0000\u0000\u009d\u009c\u0001\u0000\u0000\u0000"+
-		"\u009e\u00a1\u0001\u0000\u0000\u0000\u009f\u009d\u0001\u0000\u0000\u0000"+
-		"\u009f\u00a0\u0001\u0000\u0000\u0000\u00a0\u00a2\u0001\u0000\u0000\u0000"+
-		"\u00a1\u009f\u0001\u0000\u0000\u0000\u00a2\u00a3\u0003\u0010\b\u0000\u00a3"+
-		"\u0015\u0001\u0000\u0000\u0000\u00a4\u00a5\u0005\u0004\u0000\u0000\u00a5"+
-		"\u00a6\u0003\u0010\b\u0000\u00a6\u0017\u0001\u0000\u0000\u0000\u0018\u001b"+
-		"\u001d %).6=CJQZ]gnsu{~\u0085\u0088\u0091\u0098\u009f";
+		"RT\u0001\u0000\u0000\u0000SQ\u0001\u0000\u0000\u0000TU\u0003\b\u0004\u0000"+
+		"U\u0007\u0001\u0000\u0000\u0000VW\u0003\n\u0005\u0000W[\u0005\u0005\u0000"+
+		"\u0000XZ\u0005\t\u0000\u0000YX\u0001\u0000\u0000\u0000Z]\u0001\u0000\u0000"+
+		"\u0000[Y\u0001\u0000\u0000\u0000[\\\u0001\u0000\u0000\u0000\\_\u0001\u0000"+
+		"\u0000\u0000][\u0001\u0000\u0000\u0000^V\u0001\u0000\u0000\u0000^_\u0001"+
+		"\u0000\u0000\u0000_`\u0001\u0000\u0000\u0000`a\u0003\f\u0006\u0000a\t"+
+		"\u0001\u0000\u0000\u0000bc\u0007\u0000\u0000\u0000c\u000b\u0001\u0000"+
+		"\u0000\u0000dh\u0005\u0007\u0000\u0000eg\u0005\t\u0000\u0000fe\u0001\u0000"+
+		"\u0000\u0000gj\u0001\u0000\u0000\u0000hf\u0001\u0000\u0000\u0000hi\u0001"+
+		"\u0000\u0000\u0000i\u007f\u0001\u0000\u0000\u0000jh\u0001\u0000\u0000"+
+		"\u0000ko\u0003\u000e\u0007\u0000ln\u0005\t\u0000\u0000ml\u0001\u0000\u0000"+
+		"\u0000nq\u0001\u0000\u0000\u0000om\u0001\u0000\u0000\u0000op\u0001\u0000"+
+		"\u0000\u0000pv\u0001\u0000\u0000\u0000qo\u0001\u0000\u0000\u0000ru\u0003"+
+		"\u0012\t\u0000su\u0003\u0014\n\u0000tr\u0001\u0000\u0000\u0000ts\u0001"+
+		"\u0000\u0000\u0000ux\u0001\u0000\u0000\u0000vt\u0001\u0000\u0000\u0000"+
+		"vw\u0001\u0000\u0000\u0000w|\u0001\u0000\u0000\u0000xv\u0001\u0000\u0000"+
+		"\u0000y{\u0005\t\u0000\u0000zy\u0001\u0000\u0000\u0000{~\u0001\u0000\u0000"+
+		"\u0000|z\u0001\u0000\u0000\u0000|}\u0001\u0000\u0000\u0000}\u0080\u0001"+
+		"\u0000\u0000\u0000~|\u0001\u0000\u0000\u0000\u007fk\u0001\u0000\u0000"+
+		"\u0000\u007f\u0080\u0001\u0000\u0000\u0000\u0080\u0081\u0001\u0000\u0000"+
+		"\u0000\u0081\u008a\u0005\b\u0000\u0000\u0082\u0086\u0003\u000e\u0007\u0000"+
+		"\u0083\u0085\u0003\u0016\u000b\u0000\u0084\u0083\u0001\u0000\u0000\u0000"+
+		"\u0085\u0088\u0001\u0000\u0000\u0000\u0086\u0084\u0001\u0000\u0000\u0000"+
+		"\u0086\u0087\u0001\u0000\u0000\u0000\u0087\u008a\u0001\u0000\u0000\u0000"+
+		"\u0088\u0086\u0001\u0000\u0000\u0000\u0089d\u0001\u0000\u0000\u0000\u0089"+
+		"\u0082\u0001\u0000\u0000\u0000\u008a\r\u0001\u0000\u0000\u0000\u008b\u008c"+
+		"\u0003\u0010\b\u0000\u008c\u000f\u0001\u0000\u0000\u0000\u008d\u008e\u0007"+
+		"\u0001\u0000\u0000\u008e\u0011\u0001\u0000\u0000\u0000\u008f\u0091\u0005"+
+		"\t\u0000\u0000\u0090\u008f\u0001\u0000\u0000\u0000\u0091\u0092\u0001\u0000"+
+		"\u0000\u0000\u0092\u0090\u0001\u0000\u0000\u0000\u0092\u0093\u0001\u0000"+
+		"\u0000\u0000\u0093\u0094\u0001\u0000\u0000\u0000\u0094\u0095\u0003\u0010"+
+		"\b\u0000\u0095\u0013\u0001\u0000\u0000\u0000\u0096\u0098\u0005\t\u0000"+
+		"\u0000\u0097\u0096\u0001\u0000\u0000\u0000\u0098\u009b\u0001\u0000\u0000"+
+		"\u0000\u0099\u0097\u0001\u0000\u0000\u0000\u0099\u009a\u0001\u0000\u0000"+
+		"\u0000\u009a\u009c\u0001\u0000\u0000\u0000\u009b\u0099\u0001\u0000\u0000"+
+		"\u0000\u009c\u00a0\u0005\u0006\u0000\u0000\u009d\u009f\u0005\t\u0000\u0000"+
+		"\u009e\u009d\u0001\u0000\u0000\u0000\u009f\u00a2\u0001\u0000\u0000\u0000"+
+		"\u00a0\u009e\u0001\u0000\u0000\u0000\u00a0\u00a1\u0001\u0000\u0000\u0000"+
+		"\u00a1\u00a3\u0001\u0000\u0000\u0000\u00a2\u00a0\u0001\u0000\u0000\u0000"+
+		"\u00a3\u00a4\u0003\u0010\b\u0000\u00a4\u0015\u0001\u0000\u0000\u0000\u00a5"+
+		"\u00a6\u0005\u0006\u0000\u0000\u00a6\u00a7\u0003\u0010\b\u0000\u00a7\u0017"+
+		"\u0001\u0000\u0000\u0000\u0018\u001b\u001d %).6=CJQ[^hotv|\u007f\u0086"+
+		"\u0089\u0092\u0099\u00a0";
 	public static final ATN _ATN =
 		new ATNDeserializer().deserialize(_serializedATN.toCharArray());
 	static {
