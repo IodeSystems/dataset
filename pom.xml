@@ -140,8 +140,8 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.10.1</version>
         <configuration>
-          <source>1.8</source>
-          <target>1.8</target>
+          <source>{maven.compiler.source}</source>
+          <target>{maven.compiler.target}</target>
           <showWarnings>true</showWarnings>
         </configuration>
       </plugin>
@@ -164,14 +164,14 @@
       </plugin>
       <plugin>
         <inherited>true</inherited>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-javadoc-plugin</artifactId>
-        <version>3.4.1</version>
+        <groupId>org.jetbrains.dokka</groupId>
+        <artifactId>dokka-maven-plugin</artifactId>
+        <version>1.7.20</version>
         <executions>
           <execution>
-            <id>attach-javadocs</id>
+            <phase>package</phase>
             <goals>
-              <goal>jar</goal>
+              <goal>javadocJar</goal>
             </goals>
           </execution>
         </executions>
