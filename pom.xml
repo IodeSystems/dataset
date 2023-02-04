@@ -140,8 +140,8 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.10.1</version>
         <configuration>
-          <source>{maven.compiler.source}</source>
-          <target>{maven.compiler.target}</target>
+          <source>${maven.compiler.source}</source>
+          <target>${maven.compiler.target}</target>
           <showWarnings>true</showWarnings>
         </configuration>
       </plugin>
