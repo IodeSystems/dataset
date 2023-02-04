@@ -7,6 +7,36 @@ import org.jooq.SortOrder
 import org.jooq.Table
 
 class DataSet {
+    companion object {
+        fun <R : Record, M> forTable(
+            table: Table<R>,
+            mapper: (R) -> M,
+            init: (TypedQuery.Builder<Table<R>, R, M>.() -> Unit)? = null
+        ): TypedQuery<Table<R>, R, M> {
+            return TypedQuery.forTable(table, mapper, init)
+        }
+
+        fun <R : Record> forTable(
+            table: Table<R>,
+            init: (TypedQuery.Builder<Table<R>, R, R>.() -> Unit)? = null
+        ): TypedQuery<Table<R>, R, R> {
+            return TypedQuery.forTable(table, { it }, init)
+        }
+
+        fun <R : Record> forTableMaps(
+            table: Table<R>,
+            init: (TypedQuery.Builder<Table<R>, R, MutableMap<String, Any>>.() -> Unit)? = null
+        ): TypedQuery<Table<R>, R, MutableMap<String, Any>> {
+            return TypedQuery.forTableMaps(table, init)
+        }
+
+        fun <R : Record> forTableRecords(
+            table: Table<R>, init: (TypedQuery.Builder<Table<R>, R, R>.() -> Unit)? = null
+        ): TypedQuery<Table<R>, R, R> {
+            return TypedQuery.forTableRecords(table, init)
+        }
+
+    }
 
     data class Request(
         val search: String? = null,
@@ -21,7 +51,9 @@ class DataSet {
     data class Response<T>(
         val data: List<T>,
         val count: Count? = null,
-        val columns: List<Column>? = null
+        val columns: List<Column>? = null,
+        val queryError: String? = null,
+        val searchRendered: String?
     ) {
         data class Count(
             val inPartition: Long,
@@ -29,30 +61,10 @@ class DataSet {
         )
 
         companion object {
-
-            fun <R : Record, M> forTable(
-                table: Table<R>,
-                mapper: (R) -> M,
-                init: (TypedQuery.Builder<Table<R>, R, M>.() -> Unit)? = null
-            ): TypedQuery<Table<R>, R, M> {
-                return TypedQuery.forTable(table, mapper, init)
-            }
-
-            fun <R : Record> forTableMaps(
-                table: Table<R>,
-                init: (TypedQuery.Builder<Table<R>, R, MutableMap<String, Any>>.() -> Unit)? = null
-            ): TypedQuery<Table<R>, R, MutableMap<String, Any>> {
-                return TypedQuery.forTableMaps(table, init)
-            }
-
-            fun <R : Record> forTableRecords(
-                table: Table<R>, init: (TypedQuery.Builder<Table<R>, R, R>.() -> Unit)? = null
-            ): TypedQuery<Table<R>, R, R> {
-                return TypedQuery.forTableRecords(table, init)
-            }
-
             fun <T> fromRequest(
-                db: DSLContext, query: TypedQuery<*, *, T>, request: Request
+                db: DSLContext,
+                query: TypedQuery<*, *, T>,
+                request: Request
             ): Response<T> {
                 var dataSet = query.data(db)
 
@@ -106,7 +118,7 @@ class DataSet {
                                 SortOrder.ASC -> Order.Direction.ASC
                                 else -> Order.Direction.DESC
                             },
-                            primaryKey = field.primaryKey
+                            primaryKey = field.primaryKey,
                         )
                     }
                 } else {
@@ -116,7 +128,10 @@ class DataSet {
                 return Response(
                     count = count,
                     columns = columns,
-                    data = data
+                    data = data,
+                    // Only return the search if we applied a search here.
+                    // We ignore partitioning and sub-searches and only pay attention to the request searching
+                    searchRendered = if (request.search.isNullOrEmpty()) "" else dataSet.query.lastSearchCorrected
                 )
             }
         }

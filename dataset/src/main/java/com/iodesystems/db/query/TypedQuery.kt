@@ -17,8 +17,14 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     val order: List<SortField<*>> = emptyList(),
     val fields: Map<String, FieldConfiguration<*>> = emptyMap(),
     val searches: Map<String, (query: String, table: T) -> Condition?> = emptyMap(),
-    val searchesToApply: List<String> = emptyList(),
+    val openSearches: List<String> = emptyList(),
+    val lastSearchCorrected: String? = null
 ) {
+
+    data class SearchRendered(
+        val search: String,
+        val condition: Condition?
+    )
 
     data class DataSet<T : Table<R>, R : Record, M>(val db: DSLContext, val query: TypedQuery<T, R, M>) {
 
@@ -37,10 +43,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
             for (ordering in query.order) {
                 jooqQuery.addOrderBy(ordering)
             }
-            val searchesToApply = query.getConditionsWithSearch()
-            if (searchesToApply != null) {
-                jooqQuery.addConditions(searchesToApply)
-            }
+            jooqQuery.addConditions(query.conditions)
             return jooqQuery
         }
 
@@ -70,7 +73,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
         }
 
         fun count(): Long {
-            return db.selectCount().from(query.table).where(query.getConditionsWithSearch())
+            return db.selectCount().from(query.table).where(query.conditions)
                 .fetchOne(0, Long::class.java)!!
         }
 
@@ -98,8 +101,13 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     }
 
     fun search(query: String): TypedQuery<T, R, M> {
+        val rendered = renderSearch(query)
+        if (rendered?.condition == null) {
+            return this
+        }
         return copy(
-            searchesToApply = searchesToApply + query
+            conditions = conditions + rendered.condition,
+            lastSearchCorrected = rendered.search
         )
     }
 
@@ -109,66 +117,64 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
         )
     }
 
-    fun getConditionsWithSearch(): Condition? {
-        if (searchesToApply.isEmpty()) {
-            return null
-        }
-        val searchConditions: MutableList<Condition> = conditions.toMutableList()
+    fun renderSearch(search: String): SearchRendered? {
+        val searchConditions = mutableListOf<Condition>()
         val searchParser = SearchParser()
-        for (search in searchesToApply) {
-            try {
-                var termsCondition: Condition? = null
-                for (term in searchParser.parse(search)) {
-                    val conditionProvider: ((s: String) -> Condition?)? = if (term.target != null) {
-                        val target = term.target.lowercase()
-                        val targetedSearch = searches[target]
-                        if (targetedSearch != null) {
-                            { s -> targetedSearch(s, table) }
-                        } else {
-                            fields[target]?.search
-                        }
+        try {
+            var termsCondition: Condition? = null
+            val searchParsed = searchParser.parse(search)
+            for (term in searchParsed.terms) {
+                val conditionProvider: ((s: String) -> Condition?)? = if (term.target != null) {
+                    val target = term.target.lowercase()
+                    val targetedSearch = searches[target]
+                    if (targetedSearch != null) {
+                        { s -> targetedSearch(s, table) }
                     } else {
-                        null
+                        fields[target]?.search
                     }
-                    var termCondition: Condition? = null
-                    for (value in term.values) {
-                        if (conditionProvider != null) {
-                            val targetedSearchCondition = conditionProvider(value.value)
-                            if (termCondition == null) {
-                                termCondition = targetedSearchCondition
-                                continue
-                            } else if (value.conjunction == Conjunction.AND) {
-                                termCondition = DSL.and(termCondition, targetedSearchCondition)
-                                continue
-                            } else {
-                                termCondition = DSL.or(termCondition, targetedSearchCondition)
-                                continue
-                            }
+                } else {
+                    null
+                }
+                var termCondition: Condition? = null
+                for (value in term.values) {
+                    if (conditionProvider != null) {
+                        val targetedSearchCondition = conditionProvider(value.value)
+                        if (termCondition == null) {
+                            termCondition = targetedSearchCondition
+                            continue
+                        } else if (value.conjunction == Conjunction.AND) {
+                            termCondition = DSL.and(termCondition, targetedSearchCondition)
+                            continue
+                        } else {
+                            termCondition = DSL.or(termCondition, targetedSearchCondition)
+                            continue
                         }
-                        var fieldsCondition: Condition? = null
-                        for (field in fields.values) {
-                            val fieldSearch = field.search ?: continue
-                            val fieldSearchCondition = fieldSearch(value.value)
-                            fieldsCondition = fieldsCondition?.or(fieldSearchCondition) ?: fieldSearchCondition
-                        }
-                        termCondition = mergeCondition(termCondition, fieldsCondition, value.conjunction)
                     }
-                    termsCondition = mergeCondition(termsCondition, termCondition, term.conjunction)
+                    var fieldsCondition: Condition? = null
+                    for (field in fields.values) {
+                        val fieldSearch = field.search ?: continue
+                        if (!field.open) continue
+                        val fieldSearchCondition = fieldSearch(value.value)
+                        fieldsCondition = fieldsCondition?.or(fieldSearchCondition) ?: fieldSearchCondition
+                    }
+                    for (openSearch in openSearches) {
+                        val searchCondition = searches[openSearch]!!(value.value, table)
+                        fieldsCondition = fieldsCondition?.or(searchCondition) ?: searchCondition
+                    }
+                    termCondition = mergeCondition(termCondition, fieldsCondition, value.conjunction)
                 }
-                if (termsCondition != null) {
-                    searchConditions.add(termsCondition)
-                }
-            } catch (e: InvalidSearchStringException) {
-                throw SneakyInvalidSearchStringException(
-                    "Invalid search while building conditions:" + e.message, e
-                )
+                termsCondition = mergeCondition(termsCondition, termCondition, term.conjunction)
             }
+            if (termsCondition != null) {
+                searchConditions.add(termsCondition)
+            }
+            return SearchRendered(searchParsed.search, DSL.or(searchConditions))
+        } catch (e: InvalidSearchStringException) {
+            throw SneakyInvalidSearchStringException(
+                "Invalid search while building conditions:" + e.message, e
+            )
         }
-        return if (searchConditions.isEmpty()) {
-            null
-        } else {
-            DSL.and(searchConditions)
-        }
+
     }
 
     private fun mergeCondition(
@@ -223,7 +229,6 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
             order = order,
             fields = fields,
             searches = searches,
-            searchesToApply = searchesToApply,
         )
     }
 
@@ -236,6 +241,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
         val search: ((String) -> Condition?)? = null,
         val primaryKey: Boolean = false,
         val type: String? = null,
+        val open: Boolean = true,
     ) {
         data class Builder<T>(
             val field: Field<T>,
@@ -245,8 +251,8 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
             var search: ((String) -> Condition?)? = null,
             var primaryKey: Boolean = false,
             var type: String? = null,
-
-            ) {
+            var open: Boolean = true,
+        ) {
             fun build(): FieldConfiguration<T> {
                 return FieldConfiguration(
                     field = field,
@@ -256,6 +262,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
                     search = search,
                     primaryKey = primaryKey,
                     type = type,
+                    open = open
                 )
             }
         }
@@ -283,18 +290,26 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
         }
 
         fun <T> field(
-            field: Field<T>, init: (FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit)? = null
+            field: Field<T>,
+            open: Boolean = true,
+            init: (FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit)? = null
         ) {
             val builder = FieldConfiguration.Builder(field)
             builder.name = mapFieldName(builder.name)
+            builder.open = open
             init?.let { builder.it(field) }
             query = query.copy(fields = query.fields + Pair(builder.name.lowercase(), builder.build()))
         }
 
         fun search(
-            name: String, search: (query: String, table: T) -> Condition
+            name: String,
+            open: Boolean = false,
+            search: (query: String, table: T) -> Condition?
         ) {
-            query = query.copy(searches = query.searches + Pair(name.lowercase(), search))
+            query = query.copy(
+                searches = query.searches + Pair(name.lowercase(), search),
+                openSearches = if (open) query.openSearches + name.lowercase() else query.openSearches
+            )
         }
 
         fun fields(vararg fields: Field<T>) {

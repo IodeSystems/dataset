@@ -9,17 +9,21 @@ import com.iodesystems.db.search.model.Term
 import com.iodesystems.fn.Fn
 import junit.framework.TestCase.assertEquals
 import org.h2.jdbcx.JdbcConnectionPool
+import org.jooq.ExecuteListener
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
+import org.jooq.impl.DefaultConfiguration
 import org.jooq.impl.DefaultDSLContext
 import org.junit.Assert
 import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.OffsetDateTime
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 class TypedQueryTest {
+
     @Test
     fun testSearchParserConformance() {
         val searchParser = SearchParser()
@@ -51,23 +55,186 @@ class TypedQueryTest {
     @Throws(InvalidSearchStringException::class)
     fun testSearchParser() {
         val searchParser = SearchParser()
-        Assert.assertEquals(Fn.list(Term("A")), searchParser.parse("A"))
-        Assert.assertEquals(Fn.list(Term("A"), Term("B")), searchParser.parse("A B"))
-        Assert.assertEquals(Fn.list(Term("A"), Term("B")), searchParser.parse("A B"))
+        Assert.assertEquals(Fn.list(Term("A")), searchParser.parse("A").terms)
+        Assert.assertEquals(Fn.list(Term("A"), Term("B")), searchParser.parse("A B").terms)
+        Assert.assertEquals(Fn.list(Term("A"), Term("B")), searchParser.parse("A B").terms)
         Assert.assertEquals(
-            Fn.list(Term("A"), Term("B"), Term(Conjunction.OR, "C")), searchParser.parse("A B , C")
+            Fn.list(Term("A"), Term("B"), Term(Conjunction.OR, "C")), searchParser.parse("A B , C").terms
         )
         Assert.assertEquals(
             Fn.list(
                 Term("A"), Term("B"), Term(Conjunction.OR, "C"), Term("target", Conjunction.AND, "Y")
-            ), searchParser.parse("A B , C target:Y")
+            ), searchParser.parse("A B , C target:Y").terms
         )
     }
 
-    @Test(expected = InvalidSearchStringException::class)
-    @Throws(InvalidSearchStringException::class)
+    @Test
     fun testBadSearch() {
-        SearchParser().parse(":")
+        val result = SearchParser().parse(":")
+        assertEquals(1, result.terms.size)
+        assertEquals("\\:", result.terms[0].values[0].value)
+    }
+
+    @Test
+    fun testExample() {
+
+        val queries = mutableListOf<String>()
+        val config = DefaultConfiguration().apply {
+            set(JdbcConnectionPool.create("jdbc:h2:mem:", "sa", "sa"))
+            set(SQLDialect.H2)
+            set(ExecuteListener.onExecuteEnd {
+                queries.add(it.query().toString())
+            })
+        }
+
+        val db = DefaultDSLContext(config)
+        val EMAIL = DSL.table("EMAIL")
+        val EMAIL_ID = DSL.field("EMAIL_ID", Int::class.java)
+        val CONTENT = DSL.field("CONTENT", String::class.java)
+        val FROM = DSL.field("FROM_", String::class.java)
+        val ATTACHMENT = DSL.field("ATTACHMENT", String::class.java)
+        val CREATED_AT = DSL.field("CREATED_AT", OffsetDateTime::class.java)
+        db.createTable(EMAIL).column(EMAIL_ID).column(CONTENT).column(FROM).column(ATTACHMENT).column(CREATED_AT)
+            .execute()
+
+        val query = DataSet.forTable(EMAIL) {
+            search("daysAgo") { s, _ ->
+                if (s.startsWith("<")) {
+                    val ltDaysAgo = s.drop(1).toLongOrNull()
+                    if (ltDaysAgo == null) null
+                    else CREATED_AT.lessOrEqual(OffsetDateTime.now().minusDays(ltDaysAgo))
+                } else if (s.startsWith(">")) {
+                    val gtDaysAgo = s.drop(1).toLongOrNull()
+                    if (gtDaysAgo == null) null
+                    else CREATED_AT.greaterOrEqual(OffsetDateTime.now().minusDays(gtDaysAgo))
+                } else {
+                    val daysAgo = s.toLongOrNull()
+                    if (daysAgo == null) null
+                    else CREATED_AT.greaterOrEqual(OffsetDateTime.now().minusDays(daysAgo))
+                }
+            }
+            search("is_x", open = true) { s, _ ->
+                if (s == "x") DSL.trueCondition()
+                else null
+            }
+            field(ATTACHMENT) { f ->
+                search = { s ->
+                    if (s.lowercase() == "true") {
+                        f.isNull
+                    } else {
+                        null
+                    }
+                }
+            }
+            field(CONTENT) { f ->
+                search = { s ->
+                    f.containsIgnoreCase(s)
+                }
+            }
+            field(FROM) { f ->
+                search = { s ->
+                    f.eq(s)
+                }
+            }
+            autoDetectFields(db)
+        }
+
+
+        DataSet.Response.fromRequest(
+            db, query, DataSet.Request(
+                search = "x"
+            )
+        )
+        assertEquals(
+            """
+            select *
+            from EMAIL
+            where (
+              CONTENT ilike (('%' || replace(
+                replace(
+                  replace('x', '!', '!!'),
+                  '%',
+                  '!%'
+                ),
+                '_',
+                '!_'
+              )) || '%') escape '!'
+              or FROM_ = 'x'
+              or true
+            )
+            limit 50
+            """.trimIndent(), queries.last()
+        )
+
+        DataSet.Response.fromRequest(
+            db, query, DataSet.Request(
+                search = "from:who,content:why"
+            )
+        )
+        assertEquals(
+            """
+            select *
+            from EMAIL
+            where (
+              FROM_ = 'who'
+              or CONTENT ilike (('%' || replace(
+                replace(
+                  replace('why', '!', '!!'),
+                  '%',
+                  '!%'
+                ),
+                '_',
+                '!_'
+              )) || '%') escape '!'
+            )
+            limit 50
+            """.trimIndent(), queries.last()
+        )
+
+        DataSet.Response.fromRequest(
+            db, query, DataSet.Request(
+                search = "from:who("
+            )
+        )
+        assertEquals(
+            """
+            select *
+            from EMAIL
+            where FROM_ = 'who\('
+            limit 50
+            """.trimIndent(), queries.last()
+        )
+
+        val result = DataSet.Response.fromRequest(
+            db, query, DataSet.Request(
+                search = """
+                    from:((, (this is parser torture""\")
+                """.trimIndent()
+            )
+        )
+        assertEquals(
+            """from:(\(, \(this is parser torture\"\"\")""",
+            result.searchRendered
+        )
+
+        assertEquals(
+            """
+            select *
+            from EMAIL
+            where (
+              (
+                FROM_ = '\('
+                or FROM_ = '\(this'
+              )
+              and FROM_ = 'is'
+              and FROM_ = 'parser'
+              and FROM_ = 'torture\"\"\"'
+            )
+            limit 50
+            """.trimIndent(), queries.last()
+        )
+
+        println()
     }
 
     @Test
@@ -117,10 +284,7 @@ class TypedQueryTest {
         val data = query.data(db)
 
         val req = DataSet.Request(
-            showColumns = true,
-            showCounts = true,
-            search = "testSearch:x",
-            partition = "mane:DERP"
+            showColumns = true, showCounts = true, search = "testSearch:x", partition = "mane:DERP"
         )
         val rsp = DataSet.Response.fromRequest(db, query, req)
         val counts = rsp.count

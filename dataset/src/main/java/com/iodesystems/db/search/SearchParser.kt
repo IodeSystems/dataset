@@ -13,44 +13,71 @@ import org.antlr.v4.runtime.*
 import org.antlr.v4.runtime.tree.ParseTreeWalker
 
 class SearchParser {
-    @Throws(InvalidSearchStringException::class)
-    fun parse(search: String?): List<Term> {
-        return try {
-            val stream = CharStreams.fromString(search)
-            val lexer = DataSetSearchLexer(stream)
-            lexer.addErrorListener(
-                object : BaseErrorListener() {
-                    override fun syntaxError(
-                        recognizer: Recognizer<*, *>?,
-                        offendingSymbol: Any,
-                        line: Int,
-                        charPositionInLine: Int,
-                        msg: String,
-                        e: RecognitionException
-                    ) {
+    class UnwantedTokenException(val position: Int) : Exception()
+    data class ParseResult(
+        val search: String,
+        val terms: List<Term>
+    )
+
+    fun parseInternal(search: String): ParseResult {
+        val stream = CharStreams.fromString(search)
+        val lexer = DataSetSearchLexer(stream)
+        lexer.removeErrorListeners()
+        lexer.addErrorListener(object : BaseErrorListener() {
+            override fun syntaxError(
+                recognizer: Recognizer<*, *>?,
+                offendingSymbol: Any?,
+                line: Int,
+                charPositionInLine: Int,
+                msg: String,
+                e: RecognitionException
+            ) {
+                throw UnwantedTokenException(charPositionInLine)
+            }
+        })
+        val parser = DataSetSearchParser(CommonTokenStream(lexer))
+        parser.errorHandler = object : DefaultErrorStrategy() {
+            override fun reportUnwantedToken(recognizer: Parser) {
+                throw UnwantedTokenException(recognizer.currentToken.stopIndex)
+            }
+
+            override fun reportError(recognizer: Parser, e: RecognitionException) {
+                when (e) {
+                    is InputMismatchException -> {
+                        throw UnwantedTokenException(recognizer.currentToken.stopIndex)
+                    }
+
+                    else -> {
                         throw SneakyInvalidSearchStringException(
-                            "Error lexing search at: " + e.offendingToken.text, e
+                            "Error parsing search at: " + e.offendingToken.text + " in $search", e
                         )
                     }
-                })
-            val parser = DataSetSearchParser(CommonTokenStream(lexer))
-            parser.errorHandler = object : DefaultErrorStrategy() {
-                override fun reportUnwantedToken(recognizer: Parser) {
-                    throw SneakyInvalidSearchStringException(
-                        "Unrecognized search part:" + recognizer.currentToken.text
-                    )
-                }
-
-                override fun reportError(recognizer: Parser, e: RecognitionException) {
-                    throw SneakyInvalidSearchStringException(
-                        "Error parsing search at: " + e.offendingToken.text, e
-                    )
                 }
             }
-            val walker = ParseTreeWalker()
-            val listener = Listener()
-            walker.walk(listener, parser.search())
-            listener.getTerms()
+        }
+        val walker = ParseTreeWalker()
+        val listener = Listener()
+        walker.walk(listener, parser.search())
+        return ParseResult(search, listener.getTerms())
+    }
+
+    @Throws(InvalidSearchStringException::class)
+    fun parse(search: String?): ParseResult {
+        var searchString = search ?: ""
+        var lastException: Exception? = null
+        try {
+            for (i in 1..1000) {
+                try {
+                    return parseInternal(searchString)
+                } catch (e: UnwantedTokenException) {
+                    searchString = searchString.take(e.position) + '\\' + searchString.drop(e.position)
+                    lastException = e
+                }
+            }
+            throw InvalidSearchStringException(
+                "Unwanted token recoveries exhausted:" + lastException?.message,
+                lastException
+            )
         } catch (e: SneakyInvalidSearchStringException) {
             throw InvalidSearchStringException(e.message, e)
         }
