@@ -52,8 +52,7 @@ class DataSet {
         val data: List<T>,
         val count: Count? = null,
         val columns: List<Column>? = null,
-        val queryError: String? = null,
-        val searchRendered: String?
+        val searchRendered: String? = null
     ) {
         data class Count(
             val inPartition: Long,
