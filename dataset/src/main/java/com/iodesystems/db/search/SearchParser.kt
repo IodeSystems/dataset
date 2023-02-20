@@ -109,7 +109,7 @@ class SearchParser {
         private fun extractValue(value: String): String {
             var value = value
             value = value.trim { it <= ' ' }
-            return if (value.length == 0) {
+            return if (value.isEmpty()) {
                 value
             } else if (value.startsWith("(") && value.endsWith(")") || value.startsWith("\"") && value.endsWith("\"") || value.startsWith(
                     "'"
@@ -118,6 +118,12 @@ class SearchParser {
                 value.substring(1, value.length - 1)
             } else {
                 value
+                    .replace("\\\\", "\\")
+                    .replace("\\'", "'")
+                    .replace("\\\"", "\"")
+                    .replace("\\:", ":")
+                    .replace("\\(", "(")
+                    .replace("\\)", ")")
             }
         }
 

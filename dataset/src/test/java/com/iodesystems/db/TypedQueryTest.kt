@@ -72,7 +72,17 @@ class TypedQueryTest {
     fun testBadSearch() {
         val result = SearchParser().parse(":")
         assertEquals(1, result.terms.size)
-        assertEquals("\\:", result.terms[0].values[0].value)
+        assertEquals(":", result.terms[0].values[0].value)
+    }
+
+    @Test
+    fun testEscapeRescape() {
+        val result = SearchParser().parse("Sean O'Conner")
+        assertEquals("Sean", result.terms[0].values[0].value)
+        assertEquals("O'Conner", result.terms[1].values[0].value)
+        val result2 = SearchParser().parse("Sean O\\'Conner")
+        assertEquals("Sean", result2.terms[0].values[0].value)
+        assertEquals("O'Conner", result2.terms[1].values[0].value)
     }
 
     @Test
@@ -200,7 +210,7 @@ class TypedQueryTest {
             """
             select *
             from EMAIL
-            where FROM_ = 'who\('
+            where FROM_ = 'who('
             limit 50
             """.trimIndent(), queries.last()
         )
@@ -217,18 +227,19 @@ class TypedQueryTest {
             result.searchRendered
         )
 
+        val trippleQuote = "\"\"\""
         assertEquals(
             """
             select *
             from EMAIL
             where (
               (
-                FROM_ = '\('
-                or FROM_ = '\(this'
+                FROM_ = '('
+                or FROM_ = '(this'
               )
               and FROM_ = 'is'
               and FROM_ = 'parser'
-              and FROM_ = 'torture\"\"\"'
+              and FROM_ = 'torture$trippleQuote'
             )
             limit 50
             """.trimIndent(), queries.last()
