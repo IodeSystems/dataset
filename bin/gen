@@ -3,48 +3,15 @@ source "$(dirname "$0")"/_init.sh
 
 TARGET="${1-all}"
 
-gen_api_models() {
-  mvn -pl web \
-    -DNPM_BUILD_PHASE=none \
-    compile \
-    typescript-generator:generate
-}
-
-gen_db_models() {
-  dev web stop
-  mvn -pl db compile jooq-codegen:generate install
-  grep -rL '@formatter:off' db/gen | xargs "$SED_COMMAND" -i '1 i\// @formatter:off'
-}
-
-gen_mark() {
-  grep -rL '@formatter:off' db/gen | xargs "$SED_COMMAND" -i '1 i\// @formatter:off' || true
-  grep -rL '@formatter:off' web/src/main/ui-gen | grep -v .gitkeep | xargs "$SED_COMMAND" -i '1 i\// @formatter:off' || true
-}
-
 case $TARGET in
-all)
-  gen_db_models
-  gen_api_models
-  gen_mark
-  ;;
-db)
-  gen_db_models
-  gen_mark
-  ;;
-api)
-  gen_api_models
-  gen_mark
-  ;;
-mark)
-  gen_mark
+parser)
+  mvn -pl dataset antlr4:antlr4
   ;;
 *)
   echo "The 'gen' script is used to generate code
 
 Supported commands:
-    all   regenerate db and api models
-    db    regenerate database models (used by the web project)
-    api   regenerate api models in the web project (used by the ui project)
+    parser   regenerate parser
 "
   exit 1
   ;;
