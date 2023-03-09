@@ -1,5 +1,7 @@
 parser grammar DataSetSearchParser;
+@header {package com.iodesystems.db.query;}
 options {tokenVocab=DataSetSearchLexer;}
+
 // term, term, term, target:term target:
 
 search: (simpleTerm (andTerm|orTerm)*)? WS* TERM_OR? WS* EOF;

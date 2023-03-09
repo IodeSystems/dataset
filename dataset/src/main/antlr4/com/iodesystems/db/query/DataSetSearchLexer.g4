@@ -1,6 +1,5 @@
 lexer grammar DataSetSearchLexer;
-
-
+@header {package com.iodesystems.db.query;}
 ESCAPED_CHAR : ESCAPE ESCAPED;
 ESCAPE :
     '\\' -> pushMode(ESCAPED_MODE)

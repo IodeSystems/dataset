@@ -36,6 +36,7 @@
     <kotlin.compiler.incremental>true</kotlin.compiler.incremental>
     <kotlin.version>1.8.10</kotlin.version>
     <jooq.version>3.18.0</jooq.version>
+    <antlr.version>4.12.0</antlr.version>
   </properties>
 
   <scm>
