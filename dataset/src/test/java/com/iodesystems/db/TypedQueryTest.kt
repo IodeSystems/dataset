@@ -1,7 +1,6 @@
 package com.iodesystems.db
 
 import com.iodesystems.db.http.DataSet
-import com.iodesystems.db.query.TypedQuery
 import com.iodesystems.db.search.SearchParser
 import com.iodesystems.db.search.errors.InvalidSearchStringException
 import com.iodesystems.db.search.model.Conjunction
@@ -172,7 +171,7 @@ class TypedQueryTest {
               or FROM_ = 'x'
               or true
             )
-            limit 50
+            fetch next 50 rows only
             """.trimIndent(), queries.last()
         )
 
@@ -197,7 +196,7 @@ class TypedQueryTest {
                 '!_'
               )) || '%') escape '!'
             )
-            limit 50
+            fetch next 50 rows only
             """.trimIndent(), queries.last()
         )
 
@@ -211,7 +210,7 @@ class TypedQueryTest {
             select *
             from EMAIL
             where FROM_ = 'who('
-            limit 50
+            fetch next 50 rows only
             """.trimIndent(), queries.last()
         )
 
@@ -241,7 +240,7 @@ class TypedQueryTest {
               and FROM_ = 'parser'
               and FROM_ = 'torture$trippleQuote'
             )
-            limit 50
+            fetch next 50 rows only
             """.trimIndent(), queries.last()
         )
 
@@ -263,7 +262,7 @@ class TypedQueryTest {
             .set(TABLE_NAME, "HERPY").set(TABLE_CREATED_AT, LocalDateTime.now().minusDays(1)).newRecord()
             .set(TABLE_ID, 4).set(TABLE_NAME, "DERPY BOOBER 1").set(TABLE_CREATED_AT, LocalDateTime.now()).execute()
 
-        val query = TypedQuery.forTable(DSL.table("(SELECT * FROM TEST_TABLE)"), { r -> r.intoMap() }) {
+        val query = DataSet.forTable(DSL.table("(SELECT * FROM TEST_TABLE)"), { r -> r.intoMap() }) {
             field(TABLE_ID) { field ->
                 orderable = true
                 search = {
