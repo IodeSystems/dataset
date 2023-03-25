@@ -127,7 +127,7 @@ class TypedQueryTest {
                 else null
             }
             field(ATTACHMENT) { f ->
-                search = { s ->
+                search { s ->
                     if (s.lowercase() == "true") {
                         f.isNull
                     } else {
@@ -136,12 +136,12 @@ class TypedQueryTest {
                 }
             }
             field(CONTENT) { f ->
-                search = { s ->
+                search { s ->
                     f.containsIgnoreCase(s)
                 }
             }
             field(FROM) { f ->
-                search = { s ->
+                search { s ->
                     f.eq(s)
                 }
             }
@@ -264,8 +264,8 @@ class TypedQueryTest {
 
         val query = DataSet.forTable(DSL.table("(SELECT * FROM TEST_TABLE)"), { r -> r.intoMap() }) {
             field(TABLE_ID) { field ->
-                orderable = true
-                search = {
+                orderable()
+                search {
                     val num = it.toIntOrNull()
                     if (num == null) {
                         null
@@ -275,10 +275,10 @@ class TypedQueryTest {
                 }
             }
             field(TABLE_NAME) { f ->
-                search = { f.contains(it) }
+                search { f.contains(it) }
             }
             field(TABLE_CREATED_AT) { f ->
-                search = { s ->
+                search { s ->
                     if (s.lowercase() == "today") {
                         DSL.trunc(f).cast(LocalDate::class.java).eq(LocalDate.now())
                     } else {
@@ -299,8 +299,8 @@ class TypedQueryTest {
         val rsp = DataSet.Response.fromRequest(db, query, req)
         val counts = rsp.count
         assertNotNull(counts)
-        assertEquals(counts.inQuery, 0)
-        assertEquals(counts.inPartition, 3)
+        assertEquals(0, counts.inQuery)
+        assertEquals(3, counts.inPartition)
         val columns = rsp.columns
         assertNotNull(columns)
         assertEquals(columns.size, 4)

@@ -1,5 +1,6 @@
 package com.iodesystems.db.query
 
+import com.iodesystems.db.http.DataSet.Order.Direction
 import com.iodesystems.db.search.SearchParser
 import com.iodesystems.db.search.errors.InvalidSearchStringException
 import com.iodesystems.db.search.errors.SneakyInvalidSearchStringException
@@ -22,8 +23,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
 ) {
 
     data class SearchRendered(
-        val search: String,
-        val condition: Condition?
+        val search: String, val condition: Condition?
     )
 
     data class DataSet<T : Table<R>, R : Record, M>(val db: DSLContext, val query: TypedQuery<T, R, M>) {
@@ -73,8 +73,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
         }
 
         fun count(): Long {
-            return db.selectCount().from(query.table).where(query.conditions)
-                .fetchOne(0, Long::class.java)!!
+            return db.selectCount().from(query.table).where(query.conditions).fetchOne(0, Long::class.java)!!
         }
 
         fun empty(): Boolean {
@@ -106,8 +105,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
             return this
         }
         return copy(
-            conditions = conditions + rendered.condition,
-            lastSearchCorrected = rendered.search
+            conditions = conditions + rendered.condition, lastSearchCorrected = rendered.search
         )
     }
 
@@ -117,7 +115,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
         )
     }
 
-    fun renderSearch(search: String): SearchRendered? {
+    fun renderSearch(search: String): SearchRendered {
         val searchConditions = mutableListOf<Condition>()
         val searchParser = SearchParser()
         try {
@@ -178,19 +176,12 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     }
 
     private fun mergeCondition(
-        termsCondition: Condition?, termCondition: Condition?, conjunction: Conjunction?
+        termsCondition: Condition?, termCondition: Condition?, conjunction: Conjunction = Conjunction.OR
     ): Condition? {
-        var termsCondition = termsCondition
-        termsCondition = if (termCondition == null) {
-            return termsCondition
-        } else if (termsCondition == null) {
-            termCondition
-        } else if (conjunction == Conjunction.AND) {
-            DSL.and(termsCondition, termCondition)
-        } else {
-            DSL.or(termsCondition, termCondition)
-        }
-        return termsCondition
+        if (termCondition == null) return termsCondition
+        if (termsCondition == null) return termCondition
+        if (conjunction == Conjunction.AND) return DSL.and(termsCondition, termCondition)
+        return DSL.or(termsCondition, termCondition)
     }
 
     fun clearOrder(): TypedQuery<T, R, M> {
@@ -238,6 +229,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
         val name: String = field.name,
         val title: String = name,
         val orderable: Boolean = false,
+        val direction: Direction? = null,
         val search: ((String) -> Condition?)? = null,
         val primaryKey: Boolean = false,
         val type: String? = null,
@@ -247,12 +239,23 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
             val field: Field<T>,
             var name: String = field.name,
             var title: String = name,
-            var orderable: Boolean = false,
-            var search: ((String) -> Condition?)? = null,
+            private var orderable: Boolean = false,
+            private var direction: Direction? = null,
+            private var search: ((String) -> Condition?)? = null,
             var primaryKey: Boolean = false,
             var type: String? = null,
-            var open: Boolean = true,
+            private var open: Boolean = true,
         ) {
+            fun orderable(direction: Direction? = null) {
+                this.direction = direction
+                orderable = true
+            }
+
+            fun search(open: Boolean? = null, fn: (s: String) -> Condition?) {
+                if (open != null) this.open = open
+                search = fn
+            }
+
             fun build(): FieldConfiguration<T> {
                 return FieldConfiguration(
                     field = field,
@@ -282,29 +285,32 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
             if (!camelMapping) {
                 return name
             }
-            return name
-                .lowercase()
-                .split("_")
-                .joinToString("") { it.replaceFirstChar { c -> c.uppercase() } }
+            return name.lowercase().split("_").joinToString("") { it.replaceFirstChar { c -> c.uppercase() } }
                 .replaceFirstChar { it.lowercase() }
         }
 
         fun <T> field(
-            field: Field<T>,
-            open: Boolean = true,
-            init: (FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit)? = null
+            field: Field<T>, init: (FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit)? = null
         ) {
             val builder = FieldConfiguration.Builder(field)
             builder.name = mapFieldName(builder.name)
-            builder.open = open
             init?.let { builder.it(field) }
-            query = query.copy(fields = query.fields + Pair(builder.name.lowercase(), builder.build()))
+            val built = builder.build()
+            query = query.copy(
+                fields = query.fields + Pair(built.name.lowercase(), built),
+                order = query.order + (if (built.direction == null) emptyList() else listOf(
+                    built.field.sort(
+                        when (built.direction) {
+                            Direction.ASC -> SortOrder.ASC
+                            Direction.DESC -> SortOrder.DESC
+                        }
+                    )
+                ))
+            )
         }
 
         fun search(
-            name: String,
-            open: Boolean = false,
-            search: (query: String, table: T) -> Condition?
+            name: String, open: Boolean = false, search: (query: String, table: T) -> Condition?
         ) {
             query = query.copy(
                 searches = query.searches + Pair(name.lowercase(), search),
@@ -319,8 +325,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
         }
 
         fun autoDetectFields(
-            db: DSLContext,
-            typesOnly: Boolean = false
+            db: DSLContext, typesOnly: Boolean = false
         ) {
             DataSet(db, query.limit(0)).result().recordType().fields().map { field ->
                 val fieldName = mapFieldName(field.name).lowercase()
@@ -347,9 +352,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
 
     companion object {
         fun <R : Record, M> forTable(
-            table: Table<R>,
-            mapper: (R) -> M,
-            init: (Builder<Table<R>, R, M>.() -> Unit)? = null
+            table: Table<R>, mapper: (R) -> M, init: (Builder<Table<R>, R, M>.() -> Unit)? = null
         ): TypedQuery<Table<R>, R, M> {
             val builder = Builder(
                 TypedQuery(table = table, mapper = mapper)
@@ -359,8 +362,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
         }
 
         fun <R : Record> forTableMaps(
-            table: Table<R>,
-            init: (Builder<Table<R>, R, MutableMap<String, Any>>.() -> Unit)? = null
+            table: Table<R>, init: (Builder<Table<R>, R, MutableMap<String, Any>>.() -> Unit)? = null
         ): TypedQuery<Table<R>, R, MutableMap<String, Any>> {
             return forTable(table, { r -> r.intoMap() }, init)
         }
