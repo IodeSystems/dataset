@@ -105,7 +105,7 @@ class DataSet {
                 // Do we even want these columns?
                 val columns = if (request.showColumns == true) {
                     dataSet.query.fields.values.map { field ->
-                        val order = dataSet.query.order.find { it.name == field.name }?.order
+                        val order = dataSet.query.order.find { it.name == field.field.name }?.order
                         Column(
                             name = field.name,
                             title = field.title,

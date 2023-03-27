@@ -265,7 +265,8 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
                     search = search,
                     primaryKey = primaryKey,
                     type = type,
-                    open = open
+                    open = open,
+                    direction = direction,
                 )
             }
         }
