@@ -7,13 +7,9 @@ pipeline {
       }
       steps {
         script {
-          properties([parameters([
-                  booleanParam(defaultValue: false,
-                          description: 'Deploy',
-                          name: 'DEPLOY'),
-                  booleanParam(defaultValue: false,
-                          description: 'Skip Ui Tests',
-                          name: 'SKIP_UI_TESTS')])])
+          properties([parameters([booleanParam(defaultValue: false,
+                  description: 'Deploy',
+                  name: 'DEPLOY')])])
         }
       }
     }
@@ -24,23 +20,27 @@ pipeline {
           branch 'main'
         }
         expression {
-          return params.SKIP_UI_TESTS == false
+          return params.DEPLOY == false
         }
       }
       steps {
         echo 'Building..'
-        sh 'bin/build all'
+        sh 'bin/mvn clean install'
       }
     }
 
     stage('Publish') {
       when {
         branch 'main'
+        expression {
+          return params.DEPLOY == true
+        }
       }
       steps {
         sh 'bin/dev release'
       }
     }
+
     stage('Archive') {
       steps {
         archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true
