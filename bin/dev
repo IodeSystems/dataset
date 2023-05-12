@@ -74,9 +74,11 @@ ensure-no-changes)
   ;;
 release)
   export GPG_TTY=$(tty)
-  mvn -Prelease clean release:prepare release:perform -e
-  echo "If everything looks okay, then feel free to run:"
-  echo "git push origin"
+  mvn -Prelease \
+    clean \
+    release:prepare \
+    release:perform \
+    -e
   ;;
 *)
   echo "The 'dev' script is for tools that fit in the development workflow
