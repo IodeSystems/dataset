@@ -76,6 +76,7 @@ release)
   export GPG_TTY=$(tty)
   mvn -Prelease \
     clean \
+    build-helper:parse-version \
     release:prepare \
     release:perform \
     -e
