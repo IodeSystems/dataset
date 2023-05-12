@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
 
@@ -15,7 +16,7 @@
   <description>
     Dataset is a tool for wrapping Jooq queries in fluent builders
   </description>
-  <url>http://nthalk.github.io/dataset/</url>
+  <url>http://iodesystems.github.io/dataset/</url>
   <developers>
     <developer>
       <id>nthalk</id>
@@ -34,15 +35,15 @@
     <maven.compiler.source>19</maven.compiler.source>
     <maven.compiler.target>${maven.compiler.source}</maven.compiler.target>
     <kotlin.compiler.incremental>true</kotlin.compiler.incremental>
-    <kotlin.version>1.8.20</kotlin.version>
-    <jooq.version>3.18.3</jooq.version>
+    <kotlin.version>1.8.21</kotlin.version>
+    <jooq.version>3.18.4</jooq.version>
     <antlr.version>4.12.0</antlr.version>
   </properties>
 
   <scm>
-    <connection>scm:git:git@github.com:Nthalk/dataset.git</connection>
-    <developerConnection>scm:git:git@github.com:Nthalk/dataset.git</developerConnection>
-    <url>http://nthalk.github.io/dataset/</url>
+    <connection>scm:git:git@github.com:IodeSystems/dataset.git</connection>
+    <developerConnection>scm:git:git@github.com:IodeSystems/dataset.git</developerConnection>
+    <url>http://iodesystems.github.io/dataset/</url>
     <tag>parent-1.0.0</tag>
   </scm>
 
@@ -111,33 +112,33 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>2.22.2</version>
       </plugin>
-        <plugin>
-          <inherited>true</inherited>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-deploy-plugin</artifactId>
-          <version>3.0.0</version>
-        </plugin>
-        <plugin>
-          <inherited>true</inherited>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-install-plugin</artifactId>
-          <version>3.0.1</version>
-        </plugin>
-        <plugin>
-          <inherited>true</inherited>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-jar-plugin</artifactId>
-          <version>3.3.0</version>
-        </plugin>
-        <plugin>
-          <groupId>org.codehaus.mojo</groupId>
-          <artifactId>versions-maven-plugin</artifactId>
-          <version>2.12.0</version>
-          <configuration>
-            <!--suppress UnresolvedMavenProperty -->
-            <rulesUri>file://${session.executionRootDirectory}/mvn-version-rules.xml</rulesUri>
-          </configuration>
-        </plugin>
+      <plugin>
+        <inherited>true</inherited>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-deploy-plugin</artifactId>
+        <version>3.0.0</version>
+      </plugin>
+      <plugin>
+        <inherited>true</inherited>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-install-plugin</artifactId>
+        <version>3.0.1</version>
+      </plugin>
+      <plugin>
+        <inherited>true</inherited>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.3.0</version>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>versions-maven-plugin</artifactId>
+        <version>2.12.0</version>
+        <configuration>
+          <!--suppress UnresolvedMavenProperty -->
+          <rulesUri>file://${session.executionRootDirectory}/mvn-version-rules.xml</rulesUri>
+        </configuration>
+      </plugin>
       <plugin>
         <inherited>true</inherited>
         <groupId>org.apache.maven.plugins</groupId>
@@ -213,7 +214,7 @@
         <executions>
           <execution>
             <id>compile</id>
-            <phase>compile</phase>
+            <phase>process-sources</phase>
             <goals>
               <goal>compile</goal>
             </goals>
