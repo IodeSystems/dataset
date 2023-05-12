@@ -83,7 +83,7 @@
               <autoVersionSubmodules>true</autoVersionSubmodules>
               <!--suppress UnresolvedMavenProperty -->
               <tag>
-                dataset-${parsedVersion.majorVersion}-${parsedVersion.minorVersion}-${parsedVersion.incrementalVersion}
+                v${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.incrementalVersion}
               </tag>
               <!--suppress UnresolvedMavenProperty -->
               <releaseVersion>
