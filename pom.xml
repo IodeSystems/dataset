@@ -94,7 +94,7 @@
             <configuration>
               <tagNameFormat>@{project.version}</tagNameFormat>
               <autoVersionSubmodules>true</autoVersionSubmodules>
-              <tag>${project.artifactId}-${project.version}</tag>
+              <tag>dataset-${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.incrementalVersion}</tag>
               <releaseVersion>
                 ${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.incrementalVersion}
               </releaseVersion>
