@@ -38,9 +38,9 @@ setup_mac() {
   fi
 
   if ! command -v gpg &>/dev/null; then
-      echo Installing GPG
-      brew install gpg -y
-    fi
+    echo Installing GPG
+    brew install gpg -y
+  fi
 }
 
 updates() {
@@ -69,6 +69,17 @@ clean)
 ensure-no-changes)
   if [[ "$(git status --porcelain=v1 2>/dev/null | wc -l | awk '{print $1}')" != "0" ]]; then
     git status --porcelain=v1 2>/dev/null
+    exit 1
+  fi
+  ;;
+ensure-jenkins-setup)
+  sed --in-place .git/config -e 's|https://github.com/|git@github.com:|'
+  VERSION="$(git rev-parse HEAD)"
+  git checkout main
+  git pull
+  CURRENT_VERSION="$(git rev-parse HEAD)"
+  if [[ ! "${VERSION}" = "${CURRENT_VERSION}" ]]; then
+    echo "Cannot release, tip of main has moved past here."
     exit 1
   fi
   ;;
