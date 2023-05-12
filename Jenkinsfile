@@ -16,11 +16,8 @@ pipeline {
 
     stage('Build Project') {
       when {
-        not {
-          branch 'main'
-        }
         expression {
-          return params.DEPLOY == false
+          return params.DEPLOY != true
         }
       }
       steps {
@@ -29,7 +26,7 @@ pipeline {
       }
     }
 
-    stage('Publish') {
+    stage('Build and Publish') {
       when {
         branch 'main'
         expression {
