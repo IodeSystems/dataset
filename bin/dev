@@ -66,6 +66,12 @@ clean)
   # Delete kotlin caches
   find ./ -type d -name '.kotlin-cache' -exec rm -rf {} \;
   ;;
+ensure-no-changes)
+  if [[ "$(git status --porcelain=v1 2>/dev/null | wc -l | awk '{print $1}')" != "0" ]]; then
+    git status --porcelain=v1 2>/dev/null
+    exit 1
+  fi
+  ;;
 release)
   export GPG_TTY=$(tty)
   mvn -Prelease clean release:prepare release:perform -e
@@ -76,11 +82,12 @@ release)
   echo "The 'dev' script is for tools that fit in the development workflow
 
 Supported commands:
-  setup       ensures your system is setup
-  updates     checks for project updates
-  rebuild     resets the database, migrates, and regerenates everything
-  clean       cleans out cached files not cleaned by 'mvn clean'
-  release     builds a release version and publishes it
+  setup             ensures your system is setup
+  updates           checks for project updates
+  rebuild           resets the database, migrates, and regerenates everything
+  clean             cleans out cached files not cleaned by 'mvn clean'
+  release           builds a release version and publishes it
+  ensure-no-changes fails if changes are made
 "
   exit 1
   ;;

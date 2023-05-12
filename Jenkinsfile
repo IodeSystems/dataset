@@ -21,7 +21,8 @@ pipeline {
         }
       }
       steps {
-        echo 'Building..'
+        sh 'bin/gen parser'
+        sh 'bin/ensure-no-changes'
         sh 'bin/mvn clean install'
       }
     }
@@ -34,6 +35,8 @@ pipeline {
         }
       }
       steps {
+        sh 'bin/gen parser'
+        sh 'bin/ensure-no-changes'
         sh 'bin/dev release'
       }
     }
