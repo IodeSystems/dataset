@@ -37,6 +37,10 @@ pipeline {
       steps {
         sh 'bin/gen parser'
         sh 'bin/dev ensure-no-changes'
+        // Ensure that we use the deploy key to deploy, why jenkins has no
+        // configuration for this, I have no idea.
+        // See https://stackoverflow.com/questions/61148043/add-a-tag-to-a-repository-with-jenkinsfile-pipeline-with-credentials for alternative ideas
+        sh 'sed --in-place .git/config -e \'s|https://github.com/|git@github.com:|\''
         sh 'bin/dev release'
       }
     }
