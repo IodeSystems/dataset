@@ -84,6 +84,7 @@ ensure-jenkins-setup)
     BRANCH="main"
   fi
   git checkout "$BRANCH"
+  git pull
   CURRENT_VERSION="$(git rev-parse HEAD)"
   if [[ ! "${VERSION}" = "${CURRENT_VERSION}" ]]; then
     echo "Cannot release, tip of main has moved past here."
