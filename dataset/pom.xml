@@ -14,12 +14,12 @@
         <dependency>
             <groupId>org.antlr</groupId>
             <artifactId>antlr4-runtime</artifactId>
-            <version>${antlr.version}</version>
+            <version>4.13.0</version>
         </dependency>
         <dependency>
             <groupId>org.jooq</groupId>
             <artifactId>jooq</artifactId>
-            <version>${jooq.version}</version>
+            <version>3.18.4</version>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
@@ -74,7 +74,7 @@
             <plugin>
                 <groupId>org.antlr</groupId>
                 <artifactId>antlr4-maven-plugin</artifactId>
-                <version>${antlr.version}</version>
+                <version>4.13.0</version>
                 <configuration>
                     <outputDirectory>${project.basedir}/gen/com/iodesystems/db/query</outputDirectory>
                     <sourceDirectory>${project.basedir}/src/main/antlr4/com/iodesystems/db/query</sourceDirectory>
