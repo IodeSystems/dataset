@@ -5,6 +5,7 @@ TARGET="${1-all}"
 
 case $TARGET in
 parser)
+  rm -rf dataset/gen
   mvn -pl dataset antlr4:antlr4
   ;;
 *)
