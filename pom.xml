@@ -5,7 +5,7 @@
 
   <groupId>com.iodesystems.dataset</groupId>
   <artifactId>parent</artifactId>
-  <version>3.0.7</version>
+  <version>3.0.8-SNAPSHOT</version>
   <packaging>pom</packaging>
   <modules>
     <module>dataset</module>
@@ -40,7 +40,7 @@
     <connection>scm:git:git@github.com:IodeSystems/dataset.git</connection>
     <developerConnection>scm:git:git@github.com:IodeSystems/dataset.git</developerConnection>
     <url>http://iodesystems.github.io/dataset/</url>
-    <tag>v3.0.7</tag>
+    <tag>parent-1.0.0</tag>
   </scm>
 
   <profiles>
