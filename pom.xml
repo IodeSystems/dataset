@@ -80,6 +80,7 @@
               <autoVersionSubmodules>true</autoVersionSubmodules>
               <branchName>${release.branchName}</branchName>
               <branchBase>${release.branchName}</branchBase>
+              <tagBase>${release.branchName}</tagBase>
               <!--suppress UnresolvedMavenProperty -->
               <tag>
                 v${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.incrementalVersion}
