@@ -34,6 +34,7 @@
     <maven.compiler.source>20</maven.compiler.source>
     <maven.compiler.target>${maven.compiler.source}</maven.compiler.target>
     <kotlin.compiler.incremental>true</kotlin.compiler.incremental>
+    <release.branchName/>
   </properties>
 
   <scm>
@@ -77,9 +78,7 @@
 
             <configuration>
               <autoVersionSubmodules>true</autoVersionSubmodules>
-              <remoteTagging>false</remoteTagging>
-              <localCheckout>false</localCheckout>
-              <pushChanges>false</pushChanges>
+              <branchName>${release.branchName}</branchName>
               <!--suppress UnresolvedMavenProperty -->
               <tag>
                 v${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.incrementalVersion}

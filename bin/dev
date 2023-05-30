@@ -102,6 +102,7 @@ release)
     build-helper:parse-version \
     release:prepare \
     release:perform \
+    -Drelease.branchName="$BRANCH" \
     --errors
   ;;
 *)
