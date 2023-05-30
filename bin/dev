@@ -3,9 +3,6 @@ source "$(dirname "$0")"/_init.sh
 
 TARGET="${1-emptystring}"
 
-# Version:        v${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.incrementalVersion}
-# Next Version:   v${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.nextIncrementalVersion}-SNAPSHOT
-
 run_setup() {
   # Ensure ./bin is on the $PATH
   if ! echo "$PATH" | grep -q '[:^]\./bin[:$]'; then
@@ -90,6 +87,7 @@ setup-release)
   echo "Checking out $BRANCH to release from..."
   git checkout "$BRANCH"
   git pull
+
   CURRENT_VERSION="$(git rev-parse HEAD)"
   if [[ ! "${VERSION}" = "${CURRENT_VERSION}" ]]; then
     echo "Cannot release, tip of main has moved past here."
@@ -98,6 +96,28 @@ setup-release)
 
   dev ensure-no-changes
   echo "This commit is on tip $BRANCH to release from..."
+
+  echo "Removing snapshot and committing..."
+  mvn versions:removeSnapshot -DgenerateBackupPoms=false
+  RELEASE_VERSION="$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)"
+  git commit -am "Release new version: ${RELEASE_VERSION}"
+  git push
+
+  echo "Deploying to repository..."
+  echo mvn deploy -DskipTests -Prelease
+
+  echo "Tagging with ${RELEASE_TAG}..."
+  git tag "${RELEASE_TAG}"
+  git push origin "${RELEASE_TAG}"
+
+  echo "Bumping to next snapshot..."
+  mvn versions:nextSnapshot -DgenerateBackupPoms=false
+  SNAPSHOT_VERSION="$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)"
+
+  echo "Committing next snapshot..."
+  git commit -am "Next development version ${SNAPSHOT_VERSION}"
+  git push
+
   ;;
 release)
   dev setup-release

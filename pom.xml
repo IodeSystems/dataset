@@ -49,15 +49,6 @@
       <build>
         <plugins>
           <plugin>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>build-helper-maven-plugin</artifactId>
-            <version>3.4.0</version>
-            <!--suppress MavenModelInspection -->
-            <configuration>
-              <propertyPrefix>parsedVersion</propertyPrefix>
-            </configuration>
-          </plugin>
-          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-gpg-plugin</artifactId>
             <version>3.0.1</version>
