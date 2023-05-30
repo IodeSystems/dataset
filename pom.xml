@@ -42,7 +42,7 @@
     <connection>scm:git:git@github.com:IodeSystems/dataset.git</connection>
     <developerConnection>scm:git:git@github.com:IodeSystems/dataset.git</developerConnection>
     <url>https://iodesystems.github.io/dataset/</url>
-    <tag>v${project.version}</tag>
+    <tag>${release.branchName}</tag>
   </scm>
 
   <profiles>
