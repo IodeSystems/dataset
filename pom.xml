@@ -6,7 +6,7 @@
 
   <groupId>com.iodesystems.dataset</groupId>
   <artifactId>parent</artifactId>
-  <version>3.0.9-SNAPSHOT</version>
+  <version>3.0.9</version>
   <packaging>pom</packaging>
   <modules>
     <module>dataset</module>
