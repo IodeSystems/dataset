@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
 
@@ -15,7 +16,7 @@
   <description>
     Dataset is a tool for wrapping Jooq queries in fluent builders
   </description>
-  <url>http://iodesystems.github.io/dataset/</url>
+  <url>https://iodesystems.github.io/dataset/</url>
   <developers>
     <developer>
       <id>nthalk</id>
@@ -40,8 +41,8 @@
   <scm>
     <connection>scm:git:git@github.com:IodeSystems/dataset.git</connection>
     <developerConnection>scm:git:git@github.com:IodeSystems/dataset.git</developerConnection>
-    <url>http://iodesystems.github.io/dataset/</url>
-    <tag>parent-1.0.0</tag>
+    <url>https://iodesystems.github.io/dataset/</url>
+    <tag>v${project.version}</tag>
   </scm>
 
   <profiles>
@@ -53,6 +54,7 @@
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>build-helper-maven-plugin</artifactId>
             <version>3.4.0</version>
+            <!--suppress MavenModelInspection -->
             <configuration>
               <propertyPrefix>parsedVersion</propertyPrefix>
             </configuration>
@@ -78,21 +80,6 @@
 
             <configuration>
               <autoVersionSubmodules>true</autoVersionSubmodules>
-              <branchName>${release.branchName}</branchName>
-              <branchBase>${release.branchName}</branchBase>
-              <tagBase>${release.branchName}</tagBase>
-              <!--suppress UnresolvedMavenProperty -->
-              <tag>
-                v${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.incrementalVersion}
-              </tag>
-              <!--suppress UnresolvedMavenProperty -->
-              <releaseVersion>
-                ${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.incrementalVersion}
-              </releaseVersion>
-              <!--suppress UnresolvedMavenProperty -->
-              <developmentVersion>
-                ${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.nextIncrementalVersion}-SNAPSHOT
-              </developmentVersion>
             </configuration>
           </plugin>
           <plugin>
@@ -293,7 +280,7 @@
   <licenses>
     <license>
       <name>MIT License</name>
-      <url>http://www.opensource.org/licenses/mit-license.php</url>
+      <url>https://www.opensource.org/licenses/mit-license.php</url>
     </license>
   </licenses>
 </project>
