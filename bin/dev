@@ -98,7 +98,7 @@ setup-release)
   echo "This commit is on tip $BRANCH to release from..."
 
   echo "Removing snapshot and committing..."
-  mvn versions:removeSnapshot -DgenerateBackupPoms=false
+  mvn versions:set -DremoveSnapshot -DgenerateBackupPoms=false
   RELEASE_VERSION="$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)"
   git commit -am "Release new version: ${RELEASE_VERSION}"
   git push
@@ -111,7 +111,7 @@ setup-release)
   git push origin "${RELEASE_TAG}"
 
   echo "Bumping to next snapshot..."
-  mvn versions:nextSnapshot -DgenerateBackupPoms=false
+  mvn versions:set -DnextSnapshot -DgenerateBackupPoms=false
   SNAPSHOT_VERSION="$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)"
 
   echo "Committing next snapshot..."
