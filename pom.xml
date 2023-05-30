@@ -79,6 +79,7 @@
             <version>3.0.0</version>
             <configuration>
               <autoVersionSubmodules>true</autoVersionSubmodules>
+              <releaseVersion>${release.branchName}</releaseVersion>
             </configuration>
           </plugin>
           <plugin>
