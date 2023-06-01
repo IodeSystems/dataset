@@ -77,7 +77,8 @@ class DataSet {
           dataSet = dataSet.clearOrder()
           for (ordering in request.ordering) {
             dataSet = dataSet.order(
-              ordering.field, if (Order.Direction.ASC == ordering.order) SortOrder.ASC else SortOrder.DESC
+              ordering.field,
+              if (Order.Direction.ASC == ordering.order) SortOrder.ASC else SortOrder.DESC
             )
           }
         }

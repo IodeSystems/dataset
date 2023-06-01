@@ -22,6 +22,10 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
   val lastSearchCorrected: String? = null
 ) {
 
+  enum class Nulls {
+    FIRST, LAST
+  }
+
   data class SearchRendered(
     val search: String, val condition: Condition?
   )
@@ -80,8 +84,8 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
       return copy(query = query.one()).count() != 1L
     }
 
-    fun order(field: String, sortOrder: SortOrder): DataSet<T, R, M> {
-      return copy(query = query.order(field, sortOrder))
+    fun order(field: String, sortOrder: SortOrder, nulls: Nulls? = null): DataSet<T, R, M> {
+      return copy(query = query.order(field, sortOrder, nulls))
     }
 
     fun clearOrder(): DataSet<T, R, M> {
@@ -188,13 +192,16 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     return copy(order = emptyList())
   }
 
-  fun order(field: String, sortOrder: SortOrder?): TypedQuery<T, R, M> {
+  fun order(field: String, sortOrder: SortOrder?, nulls: Nulls? = null): TypedQuery<T, R, M> {
     val fieldConfiguration = fields[field.lowercase(Locale.getDefault())] ?: return this
-    return order(fieldConfiguration.field, sortOrder)
+
+    return order(fieldConfiguration.field, sortOrder, fieldConfiguration.orderNulls ?: nulls)
   }
 
-  fun order(field: Field<*>, order: SortOrder?): TypedQuery<T, R, M> {
-    return copy(order = this.order + field.sort(order))
+  fun order(field: Field<*>, order: SortOrder?, nulls: Nulls? = null): TypedQuery<T, R, M> {
+    return copy(
+      order = this.order + field.sort(order)
+        .let { if (nulls == null) it else if (nulls == Nulls.FIRST) it.nullsFirst() else it.nullsLast() })
   }
 
   fun data(db: DSLContext): DataSet<T, R, M> {
@@ -234,7 +241,10 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     val primaryKey: Boolean = false,
     val type: String? = null,
     val open: Boolean = true,
+    val orderNulls: Nulls? = null
   ) {
+
+
     data class Builder<T>(
       val field: Field<T>,
       var name: String = field.name,
@@ -245,10 +255,12 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
       var primaryKey: Boolean = false,
       var type: String? = null,
       private var open: Boolean = true,
+      private var orderNulls: Nulls? = null
     ) {
-      fun orderable(direction: Direction? = null) {
+      fun orderable(direction: Direction? = null, nulls: Nulls? = null) {
         this.direction = direction
         orderable = true
+        orderNulls = nulls
       }
 
       fun search(open: Boolean? = null, fn: (s: String) -> Condition?) {
@@ -267,6 +279,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
           type = type,
           open = open,
           direction = direction,
+          orderNulls = orderNulls
         )
       }
     }
