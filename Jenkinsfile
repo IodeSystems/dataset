@@ -22,16 +22,32 @@ pipeline {
       }
     }
 
-    stage('Build and Publish') {
-      when {
-        expression {
-          return params.DEPLOY != true
-        }
-      }
+    stage('Generate') {
       steps {
         sh 'bin/gen parser'
         sh 'bin/dev ensure-no-changes'
-        sh 'bin/mvn clean deploy --update-snapshots --no-transfer-progress'
+      }
+    }
+
+    // When building on the main branch, we want to deploy the project to the
+    // repository to expose the artifact to other projects
+    stage('Deploy Project') {
+      when {
+        branch "main"
+      }
+      steps {
+        sh 'bin/mvn clean deploy --no-transfer-progress --update-snapshots'
+      }
+    }
+
+    // When building on a branch other than main, we intend to build the project
+    // but not deploy it to the repository. Since it is not mainline yet.
+    stage('Build Project') {
+      when {
+        not { branch "main" }
+      }
+      steps {
+        sh 'bin/mvn clean package --no-transfer-progress --update-snapshots'
       }
     }
 
