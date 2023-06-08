@@ -104,7 +104,7 @@ setup-release)
   git push
 
   echo "Deploying to ${RELEASE_VERSION} repository..."
-  mvn deploy -DskipTests -Prelease
+  mvn deploy -Dmaven.install.skip=true -DskipTests -Prelease
 
   echo "Tagging with ${RELEASE_VERSION}..."
   git tag "${RELEASE_VERSION}"

@@ -7,9 +7,17 @@ pipeline {
       }
       steps {
         script {
-          properties([parameters([booleanParam(defaultValue: false,
-                  description: 'Deploy',
-                  name: 'DEPLOY')])])
+          properties([parameters([
+                  booleanParam(defaultValue: false,
+                          description: 'Deploy',
+                          name: 'DEPLOY'),
+                  booleanParam(defaultValue: false,
+                          description: 'Release',
+                          name: 'RELEASE'),
+                  stringParam(defaultValue: 'auto',
+                          description: 'Version, "auto" for automatic versioning, or specify a version number (e.g. 1.0.0)',
+                          name: 'VERSION'),
+          ])])
         }
       }
     }
@@ -23,25 +31,19 @@ pipeline {
       steps {
         sh 'bin/gen parser'
         sh 'bin/dev ensure-no-changes'
-        sh 'bin/mvn clean install'
+        sh 'bin/mvn clean install deploy --update-snapshots --no-transfer-progress -Psnapshot'
       }
     }
 
-    stage('Build and Publish') {
+    stage('Release') {
       when {
-        branch 'main'
+        branch "main"
         expression {
-          return params.DEPLOY == true
+          return params.RELEASE == true
         }
       }
       steps {
-        sh 'bin/gen parser'
-        sh 'bin/dev ensure-no-changes'
-        // Ensure that we use the deploy key to deploy, why jenkins has no
-        // configuration for this, I have no idea.
-        // See https://stackoverflow.com/questions/61148043/add-a-tag-to-a-repository-with-jenkinsfile-pipeline-with-credentials for alternative ideas
-        sh 'bin/dev ensure-jenkins-setup'
-        sh 'bin/dev release'
+        sh "bin/dev release '$VERSION'"
       }
     }
 
