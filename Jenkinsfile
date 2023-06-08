@@ -22,7 +22,7 @@ pipeline {
       }
     }
 
-    stage('Build Project') {
+    stage('Build and Publish') {
       when {
         expression {
           return params.DEPLOY != true

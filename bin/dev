@@ -76,7 +76,7 @@ ensure-no-changes)
     exit 1
   fi
   ;;
-setup-release)
+release)
   dev ensure-no-changes
   $SED_COMMAND --in-place .git/config -e 's|https://github.com/|git@github.com:|'
   VERSION="$(git rev-parse HEAD)"
@@ -117,11 +117,6 @@ setup-release)
   echo "Committing next snapshot..."
   git commit -am "Next development version ${SNAPSHOT_VERSION}"
   git push
-
-  ;;
-release)
-  dev setup-release
-
 
   ;;
 *)
