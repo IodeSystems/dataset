@@ -31,7 +31,7 @@ pipeline {
       steps {
         sh 'bin/gen parser'
         sh 'bin/dev ensure-no-changes'
-        sh 'bin/mvn clean install deploy --update-snapshots --no-transfer-progress -Psnapshot'
+        sh 'bin/mvn clean deploy --update-snapshots --no-transfer-progress'
       }
     }
 
