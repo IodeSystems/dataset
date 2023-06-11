@@ -14,7 +14,7 @@ termValueGroup
 : TERM_GROUP_START WS* (simpleValue WS* (andValue|orValue)* WS*)? TERM_GROUP_END
 | simpleValue unprotectedOrValue*;
 simpleValue: termValue;
-termValue: (STRING  | ANY | ESCAPED_CHAR);
+termValue: NEGATE? (STRING  | ANY | ESCAPED_CHAR);
 andValue: WS+ termValue;
 orValue: WS* TERM_OR WS* termValue;
 unprotectedOrValue: TERM_OR termValue;

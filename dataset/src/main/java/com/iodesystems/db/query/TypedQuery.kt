@@ -163,9 +163,11 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
             val searchCondition = searches[openSearch]!!(value.value, table)
             fieldsCondition = fieldsCondition?.or(searchCondition) ?: searchCondition
           }
+          if (value.negated) fieldsCondition = fieldsCondition?.not()
           termCondition = mergeCondition(termCondition, fieldsCondition, value.conjunction)
         }
         termsCondition = mergeCondition(termsCondition, termCondition, term.conjunction)
+
       }
       if (termsCondition != null) {
         searchConditions.add(termsCondition)

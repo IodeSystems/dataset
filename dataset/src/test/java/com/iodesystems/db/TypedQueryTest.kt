@@ -1,6 +1,7 @@
 package com.iodesystems.db
 
 import com.iodesystems.db.http.DataSet
+import com.iodesystems.db.query.TypedQuery
 import com.iodesystems.db.search.SearchParser
 import com.iodesystems.db.search.errors.InvalidSearchStringException
 import com.iodesystems.db.search.model.Conjunction
@@ -9,7 +10,9 @@ import com.iodesystems.fn.Fn
 import junit.framework.TestCase.assertEquals
 import org.h2.jdbcx.JdbcConnectionPool
 import org.jooq.ExecuteListener
+import org.jooq.Record
 import org.jooq.SQLDialect
+import org.jooq.Table
 import org.jooq.impl.DSL
 import org.jooq.impl.DefaultConfiguration
 import org.jooq.impl.DefaultDSLContext
@@ -75,7 +78,10 @@ class TypedQueryTest {
     )
     Assert.assertEquals(
       Fn.list(
-        Term("A"), Term("B"), Term(Conjunction.OR, "C"), Term("target", Conjunction.AND, "Y")
+        Term("A"),
+        Term("B"),
+        Term(Conjunction.OR, "C"),
+        Term("target", Conjunction.AND, "Y")
       ), searchParser.parse("A B , C target:Y").terms
     )
   }
@@ -98,7 +104,86 @@ class TypedQueryTest {
   }
 
   @Test
-  fun testExample() {
+  fun testNegation() {
+    val result = SearchParser().parse("A !B")
+    assertEquals("A", result.terms[0].values[0].value)
+    assertEquals("B", result.terms[1].values[0].value)
+    assertEquals(false, result.terms[0].values[0].negated)
+    assertEquals(true, result.terms[1].values[0].negated)
+  }
+
+  @Test
+  fun testNegationWithEscaping() {
+    SearchParser().parse("""A:(!!a, \!b c!, !d\\!)""").apply {
+      assertEquals(1, terms.size)
+      terms[0].apply {
+        assertEquals(4, values.size)
+        assertEquals("A", target)
+
+        assertEquals("!a", values[0].value)
+        assertEquals(true, values[0].negated)
+
+        assertEquals("!b", values[1].value)
+        assertEquals(false, values[1].negated)
+
+        assertEquals("c!", values[2].value)
+        assertEquals(false, values[2].negated)
+
+        assertEquals("d\\!", values[3].value)
+        assertEquals(true, values[3].negated)
+      }
+    }
+  }
+
+  @Test
+  fun testNegationConditions() {
+    val setup = setup()
+    setup.db.execute(
+      """
+      INSERT INTO "EMAIL" (
+        EMAIL_ID,
+        CONTENT,
+        FROM_
+      ) VALUES
+       (1,'A', 'x'),
+       (2,'B', 'y'),
+       (3,'C', 'z'),
+       (4,'AB', 'xx')
+    """.trimIndent()
+    )
+
+    DataSet.Response.fromRequest(
+      setup.db, setup.query,
+      DataSet.Request(search = "A !B", showCounts = true)
+    ).let {
+      assertEquals(1L, it.count?.inQuery)
+      assertEquals(1, it.data.size)
+      assertEquals("A", it.data[0].get("CONTENT"))
+    }
+
+    assertEquals(
+      2L,
+      DataSet.Response.fromRequest(
+        setup.db, setup.query,
+        DataSet.Request(search = "A !C", showCounts = true)
+      ).count?.inQuery
+    )
+    assertEquals(
+      3L,
+      DataSet.Response.fromRequest(
+        setup.db, setup.query,
+        DataSet.Request(search = "!z", showCounts = true)
+      ).count?.inQuery
+    )
+  }
+
+  data class Setup(
+    val db: DefaultDSLContext,
+    val query: TypedQuery<Table<Record>, Record, Record>,
+    val queries: MutableList<String>
+  )
+
+  fun setup(): Setup {
 
     val queries = mutableListOf<String>()
     val config = DefaultConfiguration().apply {
@@ -160,7 +245,15 @@ class TypedQueryTest {
       }
       autoDetectFields(db)
     }
+    return Setup(db, query, queries)
+  }
 
+  @Test
+  fun testExample() {
+    val setup = setup()
+    val db = setup.db
+    val query = setup.query
+    val queries = setup.queries
 
     DataSet.Response.fromRequest(
       db, query, DataSet.Request(

@@ -94,7 +94,9 @@ class SearchParser {
     override fun enterSimpleTerm(ctx: SimpleTermContext) {
       super.enterSimpleTerm(ctx)
       currentTermValues = mutableListOf()
-      currentTerm = Term(extractTarget(ctx.term().termTarget()), Conjunction.AND, currentTermValues!!)
+
+      currentTerm =
+        Term(extractTarget(ctx.term().termTarget()), Conjunction.AND, currentTermValues!!)
       terms.add(currentTerm!!)
     }
 
@@ -103,7 +105,10 @@ class SearchParser {
     }
 
     private fun extractValue(value: TermValueContext): String {
-      return extractValue(value.text)
+      value.ANY()?.let { return extractValue(it.text) }
+      value.ESCAPED_CHAR()?.let { return extractValue(it.text) }
+      value.STRING()?.let { return extractValue(it.text) }
+      error("Cannot extract value from term")
     }
 
     private fun extractValue(value: String): String {
@@ -118,48 +123,74 @@ class SearchParser {
         value.substring(1, value.length - 1)
       } else {
         value
-          .replace("\\\\", "\\")
           .replace("\\'", "'")
           .replace("\\ ", " ")
           .replace("\\\"", "\"")
           .replace("\\:", ":")
           .replace("\\(", "(")
           .replace("\\)", ")")
+          .replace("\\!", "!")
+          .replace("\\\\", "\\")
       }
     }
 
     override fun enterAndTerm(ctx: AndTermContext) {
       super.enterAndTerm(ctx)
       currentTermValues = mutableListOf()
-      currentTerm = Term(extractTarget(ctx.term().termTarget()), Conjunction.AND, currentTermValues!!)
+      currentTerm =
+        Term(extractTarget(ctx.term().termTarget()), Conjunction.AND, currentTermValues!!)
       terms.add(currentTerm!!)
     }
 
     override fun enterOrTerm(ctx: OrTermContext) {
       super.enterOrTerm(ctx)
       currentTermValues = mutableListOf()
-      currentTerm = Term(extractTarget(ctx.term().termTarget()), Conjunction.OR, currentTermValues!!)
+      currentTerm =
+        Term(extractTarget(ctx.term().termTarget()), Conjunction.OR, currentTermValues!!)
       terms.add(currentTerm!!)
     }
 
     override fun enterSimpleValue(ctx: SimpleValueContext) {
       super.enterSimpleValue(ctx)
-      currentTermValues!!.add(TermValue(Conjunction.AND, extractValue(ctx.termValue())))
+      currentTermValues!!.add(
+        TermValue(
+          Conjunction.AND,
+          extractValue(ctx.termValue()),
+          ctx.termValue().NEGATE() != null
+
+        )
+      )
     }
 
     override fun enterAndValue(ctx: AndValueContext) {
       super.enterAndValue(ctx)
-      currentTermValues!!.add(TermValue(Conjunction.AND, extractValue(ctx.termValue())))
+      currentTermValues!!.add(
+        TermValue(
+          Conjunction.AND, extractValue(ctx.termValue()),
+          ctx.termValue().NEGATE() != null
+        )
+      )
     }
 
     override fun enterOrValue(ctx: OrValueContext) {
       super.enterOrValue(ctx)
-      currentTermValues!!.add(TermValue(Conjunction.OR, extractValue(ctx.termValue())))
+      currentTermValues!!.add(
+        TermValue(
+          Conjunction.OR, extractValue(ctx.termValue()),
+          ctx.termValue().NEGATE() != null
+        )
+      )
     }
 
     override fun enterUnprotectedOrValue(ctx: UnprotectedOrValueContext) {
       super.enterUnprotectedOrValue(ctx)
-      currentTermValues!!.add(TermValue(Conjunction.OR, extractValue(ctx.termValue())))
+      currentTermValues!!.add(
+        TermValue(
+          Conjunction.OR,
+          extractValue(ctx.termValue()),
+          ctx.termValue().NEGATE() != null
+        )
+      )
     }
   }
 }
