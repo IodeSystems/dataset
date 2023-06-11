@@ -141,20 +141,20 @@ class SearchParser {
       terms.add(currentTerm!!)
     }
 
-    private fun addTermValue(ctx: TermValueContext) {
+    private fun addTermValue(ctx: TermValueContext, conjunction: Conjunction = Conjunction.AND) {
       val value = extractValue(ctx)
       currentTermValues!!.add(
         if (value == null) {
           if (ctx.NEGATE() !== null) {
             TermValue(
-              Conjunction.AND, ctx.text, false
+              conjunction, ctx.text, false
             )
           } else {
             error("Cannot extract term value")
           }
         } else {
           TermValue(
-            Conjunction.AND, value, ctx.NEGATE() != null
+            conjunction, value, ctx.NEGATE() != null
           )
         }
       )
@@ -172,12 +172,12 @@ class SearchParser {
 
     override fun enterOrValue(ctx: OrValueContext) {
       super.enterOrValue(ctx)
-      addTermValue(ctx.termValue())
+      addTermValue(ctx.termValue(), Conjunction.OR)
     }
 
     override fun enterUnprotectedOrValue(ctx: UnprotectedOrValueContext) {
       super.enterUnprotectedOrValue(ctx)
-      addTermValue(ctx.termValue())
+      addTermValue(ctx.termValue(), Conjunction.OR)
     }
   }
 }

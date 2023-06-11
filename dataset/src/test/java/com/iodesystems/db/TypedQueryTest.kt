@@ -9,6 +9,7 @@ import com.iodesystems.db.search.model.Term
 import com.iodesystems.fn.Fn
 import junit.framework.TestCase.assertEquals
 import org.h2.jdbcx.JdbcConnectionPool
+import org.jooq.DSLContext
 import org.jooq.ExecuteListener
 import org.jooq.Record
 import org.jooq.SQLDialect
@@ -339,9 +340,7 @@ class TypedQueryTest {
 
     val result = DataSet.Response.fromRequest(
       db, query, DataSet.Request(
-        search = """
-                    from:((, (this is parser torture""\")
-                """.trimIndent()
+        search = """from:((, (this is parser torture""\")"""
       )
     )
     assertEquals(
@@ -372,18 +371,38 @@ class TypedQueryTest {
 
   @Test
   fun testSearching() {
-    val db = DefaultDSLContext(JdbcConnectionPool.create("jdbc:h2:mem:", "sa", "sa"), SQLDialect.H2)
+
+    val queries = mutableListOf<String>()
+    val config = DefaultConfiguration().apply {
+      set(JdbcConnectionPool.create("jdbc:h2:mem:", "sa", "sa"))
+      set(SQLDialect.H2)
+      set(ExecuteListener.onExecuteEnd {
+        queries.add(it.query().toString())
+      })
+    }
+    val db = DefaultDSLContext(config)
     val TABLE = DSL.table("TEST_TABLE")
     val TABLE_ID = DSL.field("ID", Int::class.java)
     val TABLE_NAME = DSL.field("NAME", String::class.java)
     val TABLE_CREATED_AT = DSL.field("CREATED_AT", LocalDateTime::class.java)
     val AUTODETECT = DSL.field("AUTO_DETECT", LocalDateTime::class.java)
     db.createTable(TABLE).column(TABLE_ID).column(TABLE_NAME).column(TABLE_CREATED_AT).column(AUTODETECT).execute()
-    db.insertInto(TABLE).set(TABLE_ID, 1).set(TABLE_NAME, "DERP").set(TABLE_CREATED_AT, LocalDateTime.now())
-      .newRecord().set(TABLE_ID, 2).set(TABLE_NAME, "DERPY DOO")
-      .set(TABLE_CREATED_AT, LocalDateTime.now().plusDays(1)).newRecord().set(TABLE_ID, 3)
-      .set(TABLE_NAME, "HERPY").set(TABLE_CREATED_AT, LocalDateTime.now().minusDays(1)).newRecord()
-      .set(TABLE_ID, 4).set(TABLE_NAME, "DERPY BOOBER 1").set(TABLE_CREATED_AT, LocalDateTime.now()).execute()
+    db.insertInto(TABLE)
+      .set(TABLE_ID, 1)
+      .set(TABLE_NAME, "DERP")
+      .set(TABLE_CREATED_AT, LocalDateTime.now())
+      .newRecord()
+      .set(TABLE_ID, 2)
+      .set(TABLE_NAME, "DERPY DOO")
+      .set(TABLE_CREATED_AT, LocalDateTime.now().plusDays(1))
+      .newRecord().set(TABLE_ID, 3)
+      .set(TABLE_NAME, "HERPY")
+      .set(TABLE_CREATED_AT, LocalDateTime.now().minusDays(1))
+      .newRecord()
+      .set(TABLE_ID, 4)
+      .set(TABLE_NAME, "DERPY BOOBER 1")
+      .set(TABLE_CREATED_AT, LocalDateTime.now())
+      .execute()
 
     val query = DataSet.forTable(DSL.table("(SELECT * FROM TEST_TABLE)"), { r -> r.intoMap() }) {
       field(TABLE_ID) { field ->
@@ -445,7 +464,10 @@ class TypedQueryTest {
     assertEquals(0, data.search("asdf").count())
     assertEquals(4, data.search("E").count())
     assertEquals(2, data.search("OO").count())
-    assertEquals(3, data.search("DERPY,HERPY").count())
+    data.search("DERPY,HERPY").count().let{
+      assertEquals(3, it)
+    }
+
     assertEquals(3, data.search("DERPY , HERPY").count())
     assertEquals(3, data.search(" DERPY , HERPY ").count())
     assertEquals(1, data.search("DERPY DOO").count())
