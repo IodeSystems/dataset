@@ -15,11 +15,10 @@ import org.antlr.v4.runtime.tree.ParseTreeWalker
 class SearchParser {
   class UnwantedTokenException(val position: Int) : Exception()
   data class ParseResult(
-    val search: String,
-    val terms: List<Term>
+    val search: String, val terms: List<Term>
   )
 
-  fun parseInternal(search: String): ParseResult {
+  private fun parseInternal(search: String): ParseResult {
     val stream = CharStreams.fromString(search)
     val lexer = DataSetSearchLexer(stream)
     lexer.removeErrorListeners()
@@ -75,8 +74,7 @@ class SearchParser {
         }
       }
       throw InvalidSearchStringException(
-        "Unwanted token recoveries exhausted:" + lastException?.message,
-        lastException
+        "Unwanted token recoveries exhausted:" + lastException?.message, lastException
       )
     } catch (e: SneakyInvalidSearchStringException) {
       throw InvalidSearchStringException(e.message, e)
@@ -95,8 +93,7 @@ class SearchParser {
       super.enterSimpleTerm(ctx)
       currentTermValues = mutableListOf()
 
-      currentTerm =
-        Term(extractTarget(ctx.term().termTarget()), Conjunction.AND, currentTermValues!!)
+      currentTerm = Term(extractTarget(ctx.term().termTarget()), Conjunction.AND, currentTermValues!!)
       terms.add(currentTerm!!)
     }
 
@@ -104,93 +101,83 @@ class SearchParser {
       return termTarget?.text
     }
 
-    private fun extractValue(value: TermValueContext): String {
+    private fun extractValue(value: TermValueContext): String? {
       value.ANY()?.let { return extractValue(it.text) }
       value.ESCAPED_CHAR()?.let { return extractValue(it.text) }
       value.STRING()?.let { return extractValue(it.text) }
-      error("Cannot extract value from term")
+      return null
     }
 
     private fun extractValue(value: String): String {
-      var value = value
-      value = value.trim { it <= ' ' }
-      return if (value.isEmpty()) {
-        value
-      } else if (value.startsWith("(") && value.endsWith(")") || value.startsWith("\"") && value.endsWith("\"") || value.startsWith(
+      var valueModified = value
+      valueModified = valueModified.trim { it <= ' ' }
+      return if (valueModified.isEmpty()) {
+        valueModified
+      } else if (valueModified.startsWith("(") && valueModified.endsWith(")") || valueModified.startsWith("\"") && valueModified.endsWith(
+          "\""
+        ) || valueModified.startsWith(
           "'"
-        ) && value.endsWith("'")
+        ) && valueModified.endsWith("'")
       ) {
-        value.substring(1, value.length - 1)
+        valueModified.substring(1, valueModified.length - 1)
       } else {
-        value
-          .replace("\\'", "'")
-          .replace("\\ ", " ")
-          .replace("\\\"", "\"")
-          .replace("\\:", ":")
+        valueModified.replace("\\'", "'").replace("\\ ", " ").replace("\\\"", "\"").replace("\\:", ":")
           .replace("\\(", "(")
-          .replace("\\)", ")")
-          .replace("\\!", "!")
-          .replace("\\\\", "\\")
+          .replace("\\)", ")").replace("\\!", "!").replace("\\\\", "\\")
       }
     }
 
     override fun enterAndTerm(ctx: AndTermContext) {
       super.enterAndTerm(ctx)
       currentTermValues = mutableListOf()
-      currentTerm =
-        Term(extractTarget(ctx.term().termTarget()), Conjunction.AND, currentTermValues!!)
+      currentTerm = Term(extractTarget(ctx.term().termTarget()), Conjunction.AND, currentTermValues!!)
       terms.add(currentTerm!!)
     }
 
     override fun enterOrTerm(ctx: OrTermContext) {
       super.enterOrTerm(ctx)
       currentTermValues = mutableListOf()
-      currentTerm =
-        Term(extractTarget(ctx.term().termTarget()), Conjunction.OR, currentTermValues!!)
+      currentTerm = Term(extractTarget(ctx.term().termTarget()), Conjunction.OR, currentTermValues!!)
       terms.add(currentTerm!!)
+    }
+
+    private fun addTermValue(ctx: TermValueContext) {
+      val value = extractValue(ctx)
+      currentTermValues!!.add(
+        if (value == null) {
+          if (ctx.NEGATE() !== null) {
+            TermValue(
+              Conjunction.AND, ctx.text, false
+            )
+          } else {
+            error("Cannot extract term value")
+          }
+        } else {
+          TermValue(
+            Conjunction.AND, value, ctx.NEGATE() != null
+          )
+        }
+      )
     }
 
     override fun enterSimpleValue(ctx: SimpleValueContext) {
       super.enterSimpleValue(ctx)
-      currentTermValues!!.add(
-        TermValue(
-          Conjunction.AND,
-          extractValue(ctx.termValue()),
-          ctx.termValue().NEGATE() != null
-
-        )
-      )
+      addTermValue(ctx.termValue())
     }
 
     override fun enterAndValue(ctx: AndValueContext) {
       super.enterAndValue(ctx)
-      currentTermValues!!.add(
-        TermValue(
-          Conjunction.AND, extractValue(ctx.termValue()),
-          ctx.termValue().NEGATE() != null
-        )
-      )
+      addTermValue(ctx.termValue())
     }
 
     override fun enterOrValue(ctx: OrValueContext) {
       super.enterOrValue(ctx)
-      currentTermValues!!.add(
-        TermValue(
-          Conjunction.OR, extractValue(ctx.termValue()),
-          ctx.termValue().NEGATE() != null
-        )
-      )
+      addTermValue(ctx.termValue())
     }
 
     override fun enterUnprotectedOrValue(ctx: UnprotectedOrValueContext) {
       super.enterUnprotectedOrValue(ctx)
-      currentTermValues!!.add(
-        TermValue(
-          Conjunction.OR,
-          extractValue(ctx.termValue()),
-          ctx.termValue().NEGATE() != null
-        )
-      )
+      addTermValue(ctx.termValue())
     }
   }
 }

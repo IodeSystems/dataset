@@ -47,6 +47,23 @@ class TypedQueryTest {
   }
 
   @Test
+  fun testEmptyNegation() {
+    val searchParser = SearchParser()
+    searchParser.parse("""!""").apply {
+      assertEquals("!", search)
+    }
+    searchParser.parse("""! """).apply {
+      assertEquals("! ", search)
+    }
+    searchParser.parse(""" ! """).apply {
+      assertEquals(" ! ", search)
+    }
+    searchParser.parse(""" ! !! ! !!""").apply {
+      assertEquals(" ! !\\! ! !\\!", search)
+    }
+  }
+
+  @Test
   fun testSearchParserEscapeConformance() {
     val searchParser = SearchParser()
     searchParser.parse("""\A""")
