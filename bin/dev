@@ -101,7 +101,6 @@ release)
   mvn versions:set -DremoveSnapshot -DgenerateBackupPoms=false
   RELEASE_VERSION="$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)"
   git commit -am "Release new version: ${RELEASE_VERSION}"
-  git push
 
   echo "Deploying to ${RELEASE_VERSION} repository..."
   mvn deploy -Dmaven.install.skip=true -DskipTests -Prelease

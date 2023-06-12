@@ -6,7 +6,7 @@
   <parent>
     <groupId>com.iodesystems.dataset</groupId>
     <artifactId>parent</artifactId>
-    <version>3.0.12</version>
+    <version>3.0.13-SNAPSHOT</version>
   </parent>
 
   <artifactId>dataset</artifactId>
