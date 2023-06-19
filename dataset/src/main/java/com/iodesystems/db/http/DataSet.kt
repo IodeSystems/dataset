@@ -5,6 +5,7 @@ import org.jooq.DSLContext
 import org.jooq.Record
 import org.jooq.SortOrder
 import org.jooq.Table
+import org.jooq.impl.DSL
 
 class DataSet {
   companion object {
@@ -35,8 +36,12 @@ class DataSet {
     ): TypedQuery<Table<R>, R, R> {
       return TypedQuery.forTableRecords(table, init)
     }
-
   }
+
+  data class Selection(
+    val include: Boolean,
+    val keys: List<List<String>>
+  )
 
   data class Request(
     val search: String? = null,
@@ -45,7 +50,8 @@ class DataSet {
     val page: Int? = null,
     val pageSize: Int? = null,
     val showCounts: Boolean? = null,
-    val showColumns: Boolean? = null
+    val showColumns: Boolean? = null,
+    val selection: Selection? = null
   )
 
   data class Response<T>(
@@ -60,6 +66,78 @@ class DataSet {
     )
 
     companion object {
+      fun <T> filterRequest(
+        db: DSLContext,
+        query: TypedQuery<*, *, T>,
+        request: Request
+      ): TypedQuery.DataSet<out Table<*>, out Record, T> {
+
+        return query
+          .let { queryUnfiltered ->
+            if (request.selection != null) {
+              // Build key set
+              val fields = query.fields.entries.mapNotNull { f ->
+                if (f.value.primaryKey) {
+                  val field = f.value.field
+                  f.value.search ?: { s -> field.cast(String::class.java).eq(s) }
+                } else {
+                  null
+                }
+              }
+              // Convert keys to rows
+              val condition = DSL.or(
+                request.selection.keys.map { keyRow ->
+                  DSL.and(
+                    keyRow.mapIndexed { index, key ->
+                      fields[index](key)
+                    }
+                  )
+                }).let {
+                // Apply inversion
+                if (request.selection.include) {
+                  it
+                } else {
+                  it.not()
+                }
+              }
+              queryUnfiltered.where(condition)
+            } else {
+              queryUnfiltered
+            }
+          }
+          .data(db)
+          .let {
+            if (!request.partition.isNullOrEmpty()) {
+              it.search(request.partition)
+            } else {
+              it
+            }
+          }
+          .let {
+            if (!request.search.isNullOrEmpty()) {
+              it.search(request.search)
+            } else {
+              it
+            }
+          }
+          .let {
+            if (!request.ordering.isNullOrEmpty()) {
+              it.clearOrder()
+                .let { dataSet ->
+                  for (ordering in request.ordering) {
+                    dataSet.order(
+                      ordering.field,
+                      if (Order.Direction.ASC == ordering.order) SortOrder.ASC else SortOrder.DESC
+                    )
+                  }
+                  dataSet
+                }
+            } else {
+              it
+            }
+          }
+      }
+
       fun <T> fromRequest(
         db: DSLContext,
         query: TypedQuery<*, *, T>,
@@ -72,16 +150,7 @@ class DataSet {
         if (!partition.isNullOrEmpty()) {
           dataSet = dataSet.search(partition)
         }
-        // Apply ordering
-        if (!request.ordering.isNullOrEmpty()) {
-          dataSet = dataSet.clearOrder()
-          for (ordering in request.ordering) {
-            dataSet = dataSet.order(
-              ordering.field,
-              if (Order.Direction.ASC == ordering.order) SortOrder.ASC else SortOrder.DESC
-            )
-          }
-        }
+
         // Maybe fetch counts?
         var count: Count? = null
         if (request.showCounts == true) {
@@ -97,6 +166,17 @@ class DataSet {
         } else {
           if (!request.search.isNullOrEmpty()) {
             dataSet = dataSet.search(request.search)
+          }
+        }
+
+        // Apply ordering
+        if (!request.ordering.isNullOrEmpty()) {
+          dataSet = dataSet.clearOrder()
+          for (ordering in request.ordering) {
+            dataSet = dataSet.order(
+              ordering.field,
+              if (Order.Direction.ASC == ordering.order) SortOrder.ASC else SortOrder.DESC
+            )
           }
         }
         // Apply limit and offset
