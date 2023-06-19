@@ -36,6 +36,77 @@ class DataSet {
     ): TypedQuery<Table<R>, R, R> {
       return TypedQuery.forTableRecords(table, init)
     }
+
+    fun <T : Table<R>, R : Record, M> filterRequestWithSelection(
+      db: DSLContext,
+      query: TypedQuery<T, R, M>,
+      request: Request
+    ): TypedQuery.DataSet<T, R, M> {
+      return query
+        .let { queryUnfiltered ->
+          if (request.selection != null) {
+            // Build key set
+            val fields = query.fields.entries.mapNotNull { f ->
+              if (f.value.primaryKey) {
+                val field = f.value.field
+                f.value.search ?: { s -> field.cast(String::class.java).eq(s) }
+              } else {
+                null
+              }
+            }
+            // Convert keys to rows
+            val condition = DSL.or(
+              request.selection.keys.map { keyRow ->
+                DSL.and(
+                  keyRow.mapIndexed { index, key ->
+                    fields[index](key)
+                  }
+                )
+              }).let {
+              // Apply inversion
+              if (request.selection.include) {
+                it
+              } else {
+                it.not()
+              }
+            }
+            queryUnfiltered.where(condition)
+          } else {
+            queryUnfiltered
+          }
+        }
+        .data(db)
+        .let {
+          if (!request.partition.isNullOrEmpty()) {
+            it.search(request.partition)
+          } else {
+            it
+          }
+        }
+        .let {
+          if (!request.search.isNullOrEmpty()) {
+            it.search(request.search)
+          } else {
+            it
+          }
+        }
+        .let {
+          if (!request.ordering.isNullOrEmpty()) {
+            it.clearOrder()
+              .let { dataSet ->
+                for (ordering in request.ordering) {
+                  dataSet.order(
+                    ordering.field,
+                    if (Order.Direction.ASC == ordering.order) SortOrder.ASC else SortOrder.DESC
+                  )
+                }
+                dataSet
+              }
+          } else {
+            it
+          }
+        }
+    }
   }
 
   data class Selection(
@@ -66,77 +137,6 @@ class DataSet {
     )
 
     companion object {
-      fun <T> filterRequest(
-        db: DSLContext,
-        query: TypedQuery<*, *, T>,
-        request: Request
-      ): TypedQuery.DataSet<out Table<*>, out Record, T> {
-
-        return query
-          .let { queryUnfiltered ->
-            if (request.selection != null) {
-              // Build key set
-              val fields = query.fields.entries.mapNotNull { f ->
-                if (f.value.primaryKey) {
-                  val field = f.value.field
-                  f.value.search ?: { s -> field.cast(String::class.java).eq(s) }
-                } else {
-                  null
-                }
-              }
-              // Convert keys to rows
-              val condition = DSL.or(
-                request.selection.keys.map { keyRow ->
-                  DSL.and(
-                    keyRow.mapIndexed { index, key ->
-                      fields[index](key)
-                    }
-                  )
-                }).let {
-                // Apply inversion
-                if (request.selection.include) {
-                  it
-                } else {
-                  it.not()
-                }
-              }
-              queryUnfiltered.where(condition)
-            } else {
-              queryUnfiltered
-            }
-          }
-          .data(db)
-          .let {
-            if (!request.partition.isNullOrEmpty()) {
-              it.search(request.partition)
-            } else {
-              it
-            }
-          }
-          .let {
-            if (!request.search.isNullOrEmpty()) {
-              it.search(request.search)
-            } else {
-              it
-            }
-          }
-          .let {
-            if (!request.ordering.isNullOrEmpty()) {
-              it.clearOrder()
-                .let { dataSet ->
-                  for (ordering in request.ordering) {
-                    dataSet.order(
-                      ordering.field,
-                      if (Order.Direction.ASC == ordering.order) SortOrder.ASC else SortOrder.DESC
-                    )
-                  }
-                  dataSet
-                }
-            } else {
-              it
-            }
-          }
-      }
 
       fun <T> fromRequest(
         db: DSLContext,
