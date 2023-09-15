@@ -1,4 +1,4 @@
-// Generated from DataSetSearchParser.g4 by ANTLR 4.13.0
+// Generated from DataSetSearchParser.g4 by ANTLR 4.13.1
 package com.iodesystems.db.query;
 import org.antlr.v4.runtime.atn.*;
 import org.antlr.v4.runtime.dfa.DFA;
@@ -11,7 +11,7 @@ import java.util.ArrayList;
 
 @SuppressWarnings({"all", "warnings", "unchecked", "unused", "cast", "CheckReturnValue"})
 public class DataSetSearchParser extends Parser {
-	static { RuntimeMetaData.checkVersion("4.13.0", RuntimeMetaData.VERSION); }
+	static { RuntimeMetaData.checkVersion("4.13.1", RuntimeMetaData.VERSION); }
 
 	protected static final DFA[] _decisionToDFA;
 	protected static final PredictionContextCache _sharedContextCache =
