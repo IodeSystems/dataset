@@ -118,6 +118,9 @@ release)
   git push
 
   ;;
+version)
+  mvn help:evaluate -Dexpression=project.version -q -DforceStdout
+  ;;
 *)
   echo "The 'dev' script is for tools that fit in the development workflow
 
@@ -128,6 +131,7 @@ Supported commands:
   clean             cleans out cached files not cleaned by 'mvn clean'
   release           builds a release version and publishes it
   ensure-no-changes fails if changes are made
+  version           prints the current version
 "
   exit 1
   ;;
