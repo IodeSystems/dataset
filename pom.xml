@@ -33,7 +33,7 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>20</maven.compiler.source>
+    <maven.compiler.source>17</maven.compiler.source>
     <maven.compiler.target>${maven.compiler.source}</maven.compiler.target>
     <kotlin.compiler.incremental>true</kotlin.compiler.incremental>
   </properties>
@@ -195,9 +195,21 @@
             </goals>
             <configuration>
               <rules>
+                <requireJavaVendor>
+                  <includes>
+                    <include>Amazon.com Inc.</include>
+                  </includes>
+                </requireJavaVendor>
+                <bannedDependencies>
+                  <searchTransitive>false</searchTransitive>
+                </bannedDependencies>
                 <requireMavenVersion>
-                  <version>3.9.2</version>
+                  <version>3.9.4</version>
                 </requireMavenVersion>
+                <requireJavaVersion>
+                  <version>${maven.compiler.source}</version>
+                </requireJavaVersion>
+                <dependencyConvergence/>
               </rules>
             </configuration>
           </execution>
