@@ -6,6 +6,7 @@ import org.jooq.Record
 import org.jooq.SortOrder
 import org.jooq.Table
 import org.jooq.impl.DSL
+import java.util.*
 
 class DataSet {
   companion object {
@@ -37,14 +38,19 @@ class DataSet {
       return TypedQuery.forTableRecords(table, init)
     }
 
-    fun <T : Table<R>, R : Record, M> filterRequestWithSelection(
-      db: DSLContext,
+    enum class RequestTransform {
+      SEARCH, PARTITION, ORDERING, SELECTION
+    }
+
+    fun <T : Table<R>, R : Record, M> applyRequestTransforms(
       query: TypedQuery<T, R, M>,
-      request: Request
-    ): TypedQuery.DataSet<T, R, M> {
+      request: Request,
+      transform: EnumSet<RequestTransform> = EnumSet.allOf(RequestTransform::class.java)
+    ): TypedQuery<T, R, M> {
       return query
         .let { queryUnfiltered ->
-          if (request.selection != null) {
+          // Apply selection keys
+          if (request.selection != null && transform.contains(RequestTransform.SELECTION)) {
             // Build key set
             val fields = query.fields.entries.mapNotNull { f ->
               if (f.value.primaryKey) {
@@ -75,23 +81,25 @@ class DataSet {
             queryUnfiltered
           }
         }
-        .data(db)
         .let {
-          if (!request.partition.isNullOrEmpty()) {
+          // Apply partition
+          if (!request.partition.isNullOrEmpty() && transform.contains(RequestTransform.PARTITION)) {
             it.search(request.partition)
           } else {
             it
           }
         }
         .let {
-          if (!request.search.isNullOrEmpty()) {
+          // Apply search
+          if (!request.search.isNullOrEmpty() && transform.contains(RequestTransform.SEARCH)) {
             it.search(request.search)
           } else {
             it
           }
         }
         .let {
-          if (!request.ordering.isNullOrEmpty()) {
+          // Apply ordering
+          if (!request.ordering.isNullOrEmpty() && transform.contains(RequestTransform.ORDERING)) {
             it.clearOrder()
               .let { dataSet ->
                 for (ordering in request.ordering) {
