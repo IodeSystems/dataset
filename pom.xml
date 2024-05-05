@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
 
   <groupId>com.iodesystems.dataset</groupId>
   <artifactId>parent</artifactId>
-  <version>3.0.15-SNAPSHOT</version>
+  <version>3.0.15</version>
   <packaging>pom</packaging>
   <modules>
     <module>dataset</module>
@@ -42,6 +41,7 @@
     <connection>scm:git:git@github.com:IodeSystems/dataset.git</connection>
     <developerConnection>scm:git:git@github.com:IodeSystems/dataset.git</developerConnection>
     <url>https://iodesystems.github.io/dataset/</url>
+    <tag>parent-3.0.15</tag>
   </scm>
 
   <profiles>
@@ -209,7 +209,7 @@
                 <requireJavaVersion>
                   <version>${maven.compiler.source}</version>
                 </requireJavaVersion>
-                <dependencyConvergence/>
+                <dependencyConvergence />
               </rules>
             </configuration>
           </execution>
