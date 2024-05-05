@@ -306,8 +306,9 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     }
 
     fun <T> field(
-      field: Field<T>, init: (FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit)? = null
+      fieldUnscoped: Field<T>, init: (FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit)? = null
     ) {
+      val field = query.table.field(fieldUnscoped) as Field<T>
       val builder = FieldConfiguration.Builder(field)
       builder.name = mapFieldName(builder.name)
       init?.let { builder.it(field) }
