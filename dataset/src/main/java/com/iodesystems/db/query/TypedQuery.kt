@@ -308,7 +308,9 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     fun <T> field(
       fieldUnscoped: Field<T>, init: (FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit)? = null
     ) {
-      val field = query.table.field(fieldUnscoped) as Field<T>
+      // Ensure that the field is scoped to the outside table
+      val field =
+        DSL.field(DSL.name(fieldUnscoped.qualifiedName.last()), fieldUnscoped.dataType)
       val builder = FieldConfiguration.Builder(field)
       builder.name = mapFieldName(builder.name)
       init?.let { builder.it(field) }

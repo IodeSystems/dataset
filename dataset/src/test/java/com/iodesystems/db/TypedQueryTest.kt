@@ -9,11 +9,7 @@ import com.iodesystems.db.search.model.Term
 import com.iodesystems.fn.Fn
 import junit.framework.TestCase.assertEquals
 import org.h2.jdbcx.JdbcConnectionPool
-import org.jooq.DSLContext
-import org.jooq.ExecuteListener
-import org.jooq.Record
-import org.jooq.SQLDialect
-import org.jooq.Table
+import org.jooq.*
 import org.jooq.impl.DSL
 import org.jooq.impl.DefaultConfiguration
 import org.jooq.impl.DefaultDSLContext
@@ -195,14 +191,13 @@ class TypedQueryTest {
     )
   }
 
-  data class Setup(
+  data class Setup<R : Record>(
     val db: DefaultDSLContext,
-    val query: TypedQuery<Table<Record>, Record, Record>,
+    val query: TypedQuery<Table<R>, R, R>,
     val queries: MutableList<String>
   )
 
-  fun setup(): Setup {
-
+  fun <T : Record> setup(setup: (DSLContext) -> TypedQuery<Table<T>, T, T>): Setup<T> {
     val queries = mutableListOf<String>()
     val config = DefaultConfiguration().apply {
       set(JdbcConnectionPool.create("jdbc:h2:mem:", "sa", "sa"))
@@ -211,59 +206,119 @@ class TypedQueryTest {
         queries.add(it.query().toString())
       })
     }
-
     val db = DefaultDSLContext(config)
-    val EMAIL = DSL.table("EMAIL")
-    val EMAIL_ID = DSL.field("EMAIL_ID", Int::class.java)
-    val CONTENT = DSL.field("CONTENT", String::class.java)
-    val FROM = DSL.field("FROM_", String::class.java)
-    val ATTACHMENT = DSL.field("ATTACHMENT", String::class.java)
-    val CREATED_AT = DSL.field("CREATED_AT", OffsetDateTime::class.java)
-    db.createTable(EMAIL).column(EMAIL_ID).column(CONTENT).column(FROM).column(ATTACHMENT).column(CREATED_AT)
-      .execute()
+    return Setup(db, setup(db), queries)
+  }
 
-    val query = DataSet.forTable(EMAIL) {
-      search("daysAgo") { s, _ ->
-        if (s.startsWith("<")) {
-          val ltDaysAgo = s.drop(1).toLongOrNull()
-          if (ltDaysAgo == null) null
-          else CREATED_AT.lessOrEqual(OffsetDateTime.now().minusDays(ltDaysAgo))
-        } else if (s.startsWith(">")) {
-          val gtDaysAgo = s.drop(1).toLongOrNull()
-          if (gtDaysAgo == null) null
-          else CREATED_AT.greaterOrEqual(OffsetDateTime.now().minusDays(gtDaysAgo))
-        } else {
-          val daysAgo = s.toLongOrNull()
-          if (daysAgo == null) null
-          else CREATED_AT.greaterOrEqual(OffsetDateTime.now().minusDays(daysAgo))
-        }
-      }
-      search("is_x", open = true) { s, _ ->
-        if (s == "x") DSL.trueCondition()
-        else null
-      }
-      field(ATTACHMENT) { f ->
-        search { s ->
-          if (s.lowercase() == "true") {
-            f.isNull
+  fun setup(): Setup<Record> {
+    return setup { db ->
+      val EMAIL = DSL.table("EMAIL")
+      val EMAIL_ID = DSL.field("EMAIL_ID", Int::class.java)
+      val CONTENT = DSL.field("CONTENT", String::class.java)
+      val FROM = DSL.field("FROM_", String::class.java)
+      val ATTACHMENT = DSL.field("ATTACHMENT", String::class.java)
+      val CREATED_AT = DSL.field("CREATED_AT", OffsetDateTime::class.java)
+      db.createTable(EMAIL).column(EMAIL_ID).column(CONTENT).column(FROM).column(ATTACHMENT).column(CREATED_AT)
+        .execute()
+      DataSet.forTable(EMAIL) {
+        search("daysAgo") { s, _ ->
+          if (s.startsWith("<")) {
+            val ltDaysAgo = s.drop(1).toLongOrNull()
+            if (ltDaysAgo == null) null
+            else CREATED_AT.lessOrEqual(OffsetDateTime.now().minusDays(ltDaysAgo))
+          } else if (s.startsWith(">")) {
+            val gtDaysAgo = s.drop(1).toLongOrNull()
+            if (gtDaysAgo == null) null
+            else CREATED_AT.greaterOrEqual(OffsetDateTime.now().minusDays(gtDaysAgo))
           } else {
-            null
+            val daysAgo = s.toLongOrNull()
+            if (daysAgo == null) null
+            else CREATED_AT.greaterOrEqual(OffsetDateTime.now().minusDays(daysAgo))
           }
         }
-      }
-      field(CONTENT) { f ->
-        search { s ->
-          f.containsIgnoreCase(s)
+        search("is_x", open = true) { s, _ ->
+          if (s == "x") DSL.trueCondition()
+          else null
         }
-      }
-      field(FROM) { f ->
-        search { s ->
-          f.eq(s)
+        field(ATTACHMENT) { f ->
+          search { s ->
+            if (s.lowercase() == "true") {
+              f.isNull
+            } else {
+              null
+            }
+          }
         }
+        field(CONTENT) { f ->
+          search { s ->
+            f.containsIgnoreCase(s)
+          }
+        }
+        field(FROM) { f ->
+          search { s ->
+            f.eq(s)
+          }
+        }
+        autoDetectFields(db)
       }
-      autoDetectFields(db)
     }
-    return Setup(db, query, queries)
+
+  }
+
+  @Test
+  fun testFieldQualifiedNames() {
+    val (db, query, queries) = setup { db ->
+      val table = DSL.table(DSL.name("tbl1"))
+      val field = DSL.field(DSL.name(table.name, "field1"), String::class.java)
+      db.createTable(table).column(field).execute()
+      val table2 = DSL.table(DSL.name("tbl2"))
+      val field2 = DSL.field(DSL.name(table2.name, "field2"), String::class.java)
+      // Qualify it
+      db.createTable(table2).column(field2).execute()
+      DataSet.forTable(
+        db.select(
+          field,
+          field2
+        )
+          .from(table)
+          .join(table2).on(field.eq(field2))
+          .asTable("TABLE_X")
+      ) {
+        field(field) { f ->
+          search { s ->
+            f.eq(s)
+          }
+        }
+        field(field2) { f ->
+          search { s ->
+            f.eq(s)
+          }
+        }
+        autoDetectFields(db)
+      }
+
+    }
+    DataSet.Response.fromRequest(
+      db, query, DataSet.Request(
+        search = "x"
+      )
+    )
+    assertEquals(
+      """
+        select "TABLE_X"."field1", "TABLE_X"."field2"
+        from (
+          select "tbl1"."field1", "tbl2"."field2"
+          from "tbl1"
+            join "tbl2"
+              on "tbl1"."field1" = "tbl2"."field2"
+        ) "TABLE_X"
+        where (
+          "field1" = 'x'
+          or "field2" = 'x'
+        )
+        fetch next 50 rows only
+      """.trimIndent(), queries.last()
+    )
   }
 
   @Test
@@ -283,7 +338,7 @@ class TypedQueryTest {
             select *
             from EMAIL
             where (
-              CONTENT ilike (('%' || replace(
+              "CONTENT" ilike (('%' || replace(
                 replace(
                   replace('x', '!', '!!'),
                   '%',
@@ -292,7 +347,7 @@ class TypedQueryTest {
                 '_',
                 '!_'
               )) || '%') escape '!'
-              or FROM_ = 'x'
+              or "FROM_" = 'x'
               or true
             )
             fetch next 50 rows only
@@ -309,8 +364,8 @@ class TypedQueryTest {
             select *
             from EMAIL
             where (
-              FROM_ = 'who'
-              or CONTENT ilike (('%' || replace(
+              "FROM_" = 'who'
+              or "CONTENT" ilike (('%' || replace(
                 replace(
                   replace('why', '!', '!!'),
                   '%',
@@ -333,7 +388,7 @@ class TypedQueryTest {
       """
             select *
             from EMAIL
-            where FROM_ = 'who('
+            where "FROM_" = 'who('
             fetch next 50 rows only
             """.trimIndent(), queries.last()
     )
@@ -355,12 +410,12 @@ class TypedQueryTest {
             from EMAIL
             where (
               (
-                FROM_ = '('
-                or FROM_ = '(this'
+                "FROM_" = '('
+                or "FROM_" = '(this'
               )
-              and FROM_ = 'is'
-              and FROM_ = 'parser'
-              and FROM_ = 'torture$trippleQuote'
+              and "FROM_" = 'is'
+              and "FROM_" = 'parser'
+              and "FROM_" = 'torture$trippleQuote'
             )
             fetch next 50 rows only
             """.trimIndent(), queries.last()
@@ -464,7 +519,7 @@ class TypedQueryTest {
     assertEquals(0, data.search("asdf").count())
     assertEquals(4, data.search("E").count())
     assertEquals(2, data.search("OO").count())
-    data.search("DERPY,HERPY").count().let{
+    data.search("DERPY,HERPY").count().let {
       assertEquals(3, it)
     }
 
