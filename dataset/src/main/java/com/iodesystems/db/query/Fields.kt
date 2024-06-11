@@ -1,11 +1,15 @@
 package com.iodesystems.db.query
 
 import com.iodesystems.db.query.TypedQuery.FieldConfiguration
-import com.iodesystems.db.util.StringUtil.lowerCaseFirstLetter
-import com.iodesystems.db.util.StringUtil.snakeToCamel
+import com.iodesystems.db.util.StringUtil.isCamelCase
+import com.iodesystems.db.util.StringUtil.isSnakeCase
+import com.iodesystems.db.util.StringUtil.snakeToCamelCase
 import org.jooq.*
 import org.jooq.impl.DSL
+import org.jooq.impl.TableImpl
 import kotlin.reflect.full.isSubclassOf
+
+typealias ConfiguredField<T> = Pair<Field<T>, FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit>
 
 class Fields<T>(
   private val mappedType: Class<T>,
@@ -15,6 +19,7 @@ class Fields<T>(
   init: (Fields<T>.() -> Unit),
 ) : List<Field<*>> by fields {
 
+  private val configuredFields = mutableMapOf<String, ConfiguredField<*>>()
 
   data class Search(
     val name: String,
@@ -22,10 +27,22 @@ class Fields<T>(
     val search: (query: String) -> Condition?
   )
 
-  private val builders = mutableListOf<Pair<Field<*>, (FieldConfiguration.Builder<*>.(field: Field<*>) -> Unit)>>()
-
   init {
     init()
+  }
+
+  fun fields(collection: Collection<Field<*>>) {
+    fields(collection.toTypedArray())
+  }
+
+  fun fields(fields: Array<Field<*>>) {
+    fields.forEach {
+      field(it)
+    }
+  }
+
+  fun fields(table: TableImpl<*>) {
+    fields(table.fields())
   }
 
   fun <T> field(
@@ -38,12 +55,16 @@ class Fields<T>(
     field: Field<T>, init: (FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit) = {}
   ): Field<T> {
     val nonQualified = field.`as`(field.name)
+    val existing = configuredFields[field.name]
+    if (existing != null) {
+      fields.remove(existing.first)
+    }
     fields.add(nonQualified as Field<*>)
-    @Suppress("UNCHECKED_CAST") builders.add(
-      Pair(
-        nonQualified, init
-      ) as Pair<Field<*>, (FieldConfiguration.Builder<*>.(field: Field<*>) -> Unit)>
+    val builder: ConfiguredField<T> = Pair(
+      nonQualified, init
     )
+    @Suppress("UNCHECKED_CAST")
+    configuredFields[field.name] = builder as ConfiguredField<*>
     return field
   }
 
@@ -55,14 +76,14 @@ class Fields<T>(
     searches.add(Search(name, open, search))
   }
 
-  fun <R : Record> toTypedQuery(
+  fun <R : Record, TABLE : TableLike<R>> toTypedQuery(
     block: (sql: SelectFromStep<Record>) -> TableLike<R>
   ): TypedQuery<Table<R>, R, T> {
     val table = block(DSL.select(fields)).asTable("query")
     @Suppress("UNCHECKED_CAST")
     return TypedQuery.forTable<R, T>(table, mapper as (Record) -> T) {
       val config = this
-      builders.forEach { (field, init) ->
+      configuredFields.values.forEach { (field, init) ->
         config.field(field) {
           init(field)
         }
@@ -114,20 +135,24 @@ class Fields<T>(
       errors.add(
         """
           Type $mappedType constructor has ${constructorFields.size} fields
-          However, it has ${fields.size} fields
+          However, only ${fields.size} fields are defined
           """.trimIndent()
       )
     }
     // Allow conversion of snake_case to camelCase
-    val fieldsByName = fields.associateBy { it.name.snakeToCamel().lowerCaseFirstLetter() }
+    val fieldsByCamelCaseName = fields.associateBy {
+      if (it.name.isCamelCase()) it.name
+      else if (it.name.isSnakeCase()) it.name.snakeToCamelCase()
+      else it.name
+    }
     val constructorFieldsByName = constructorFields.associateBy { it.name }
     val foundFields = mutableSetOf<String>()
     val foundConstructorFields = mutableSetOf<String>()
     // field errors
-    fieldsByName.forEach { (name, field) ->
+    fieldsByCamelCaseName.forEach { (name, field) ->
       val constructorField = constructorFieldsByName[name]
       if (constructorField == null) {
-        errors.add("Constructor field is missing field $name")
+        errors.add("Constructor is missing configured field $name")
         return@forEach
       }
       foundFields.add(name)
@@ -142,30 +167,34 @@ class Fields<T>(
     }
     // constructor errors
     constructorFieldsByName.forEach { (name, _) ->
-      val mappedField = fieldsByName[name]
+      val mappedField = fieldsByCamelCaseName[name]
       if (mappedField == null) {
-        errors.add("Type $mappedType is missing field $name")
+        errors.add("Constructor is missing field $name")
         return@forEach
       }
       foundConstructorFields.add(name)
     }
 
-    if (foundConstructorFields.size != constructorFieldsByName.size) {
-      val missingFields = (constructorFieldsByName.keys - foundConstructorFields).joinToString(", ")
-      errors.add("Type $mappedType is missing fields $missingFields")
+    if (constructorFields.size != fields.size) {
+      errors.add(
+        "Constructor has ${constructorFields.size} fields but only ${fields.size} fields are defined"
+      )
     }
 
     if (errors.isEmpty()) {
       { record: Record ->
         val args = constructorFields.map { field ->
-          val mappedField = fieldsByName[field.name]
-          record[mappedField] as Any
+          val mappedField = fieldsByCamelCaseName[field.name]
+          record[mappedField]
         }
         @Suppress("UNCHECKED_CAST")
         constructor.newInstance(*args.toTypedArray()) as T
       }
     } else {
-      throw IllegalArgumentException(errors.joinToString("\n\n"))
+      throw IllegalArgumentException(
+        "Could not create mapper for type $mappedType\n" +
+            errors.joinToString("\n\n")
+      )
     }
   }
 }

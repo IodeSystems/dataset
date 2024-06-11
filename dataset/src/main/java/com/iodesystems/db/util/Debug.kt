@@ -26,7 +26,7 @@ data class Debug(
         partitionConditions = if (req.partition == null) "" else this.renderSearch(
           req.partition ?: ""
         ).condition.toString(),
-        sql = DataSet.applyRequestTransforms(this, req).data(db).query().sql,
+        sql = req.transform(this).data(db).query().sql,
       )
     }
   }

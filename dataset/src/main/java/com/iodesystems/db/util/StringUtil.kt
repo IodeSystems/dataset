@@ -8,10 +8,13 @@ object StringUtil {
     return enumValues<T>().firstOrNull { it.name.equals(this, ignoreCase = true) }
   }
 
-  fun String.snakeToCamel(): String {
-    return this.split("_").joinToString("") { fragment ->
-      fragment.replaceFirstChar { char -> if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString() }
-    }
+  // Convert snake_case to camelCase, keeping the first letter lowercase
+  fun String.snakeToCamelCase(): String {
+    return this.split("_")
+      .mapIndexed { index, s ->
+        if (index == 0) s.lowercase()
+        else s.lowercase().replaceFirstChar { char -> char.titlecase(Locale.getDefault()) }
+      }.joinToString("")
   }
 
   fun String.camelToTitleCase(): String {
@@ -35,6 +38,11 @@ object StringUtil {
 
   fun String.lowerCaseFirstLetter(): String {
     return this.replaceFirstChar { it.lowercase() }
+  }
+
+  fun String.titleCase(): String {
+    return this.split(" ")
+      .joinToString(" ") { it.lowercase().replaceFirstChar { char -> char.titlecase(Locale.getDefault()) } }
   }
 
   fun String.camelToSnakeCase(): String {

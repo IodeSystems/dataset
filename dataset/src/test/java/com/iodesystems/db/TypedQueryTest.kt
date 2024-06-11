@@ -264,7 +264,7 @@ class TypedQueryTest {
           .column(CREATED_AT)
           .execute()
       }.toTypedQuery { sql ->
-        sql.from(EMAIL)
+        sql.from(EMAIL).asTable()
       }
     }
   }

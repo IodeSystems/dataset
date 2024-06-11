@@ -5,8 +5,16 @@ import com.iodesystems.db.search.SearchParser
 import com.iodesystems.db.search.errors.InvalidSearchStringException
 import com.iodesystems.db.search.errors.SneakyInvalidSearchStringException
 import com.iodesystems.db.search.model.Conjunction
+import com.iodesystems.db.util.StringUtil.camelToTitleCase
+import com.iodesystems.db.util.StringUtil.isCamelCase
+import com.iodesystems.db.util.StringUtil.isSnakeCase
+import com.iodesystems.db.util.StringUtil.snakeToCamelCase
+import com.iodesystems.db.util.StringUtil.snakeToTitleCase
+import com.iodesystems.db.util.StringUtil.titleCase
 import org.jooq.*
 import org.jooq.impl.DSL
+import org.slf4j.LoggerFactory
+import java.util.stream.Stream
 
 data class TypedQuery<T : Table<R>, R : Record, M>(
   val table: T,
@@ -33,6 +41,14 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
   )
 
   data class DataSet<T : Table<R>, R : Record, M>(val db: DSLContext, val query: TypedQuery<T, R, M>) {
+
+    fun field(name: String): FieldConfiguration<*>? {
+      return query.fieldsByNameLower[name.lowercase()]
+    }
+
+    fun field(field: Field<*>): FieldConfiguration<*>? {
+      return query.fields[field.name]
+    }
 
     fun search(search: String): DataSet<T, R, M> {
       return copy(db = db, query = query.search(search))
@@ -76,6 +92,10 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     fun fetch(): List<M> {
       val result: Result<R> = result()
       return result.map(query.mapper)
+    }
+
+    fun stream(): Stream<M> {
+      return query().stream().map(query.mapper)
     }
 
     fun count(): Long {
@@ -136,10 +156,18 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
           if (targetedSearch != null) {
             { s -> targetedSearch(s, table) }
           } else {
-            fieldsByNameLower[target]?.search
+            val targetField = fieldsByNameLower[target]
+            if (targetField == null) {
+              log.warn("Requested field $target not found in configured fields, searching open fields instead")
+              null
+            } else if (targetField.search == null) {
+              log.warn("Configured field $target has no search, but was requested, searching open fields instead")
+              null
+            } else {
+              targetField.search
+            }
           }
         } else {
-          // No targeted condition provider
           null
         }
         var termCondition: Condition? = null
@@ -309,6 +337,18 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
       val field =
         DSL.field(DSL.name(fieldUnscoped.qualifiedName.last()), fieldUnscoped.dataType)
       val builder = FieldConfiguration.Builder(field)
+
+      if (field.name.isCamelCase()) {
+        builder.name = field.name
+        builder.title = field.name.camelToTitleCase()
+      } else if (field.name.isSnakeCase()) {
+        builder.name = field.name.snakeToCamelCase()
+        builder.title = field.name.snakeToTitleCase()
+      } else {
+        builder.name = field.name
+        builder.title = field.name.titleCase()
+      }
+
       init?.let { builder.it(field) }
       val built = builder.build()
       query = query.copy(
@@ -367,6 +407,8 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
   }
 
   companion object {
+    val log = LoggerFactory.getLogger(TypedQuery::class.java)
+
     fun <R : Record, M> forTable(
       table: Table<R>, mapper: (R) -> M, init: (Builder<Table<R>, R, M>.() -> Unit)? = null
     ): TypedQuery<Table<R>, R, M> {
