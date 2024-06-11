@@ -157,7 +157,7 @@ class TypedQueryTest {
       INSERT INTO "EMAIL" (
         EMAIL_ID,
         CONTENT,
-        FROM_
+        FROM_EMAIL
       ) VALUES
        (1,'A', 'x'),
        (2,'B', 'y'),
@@ -165,14 +165,13 @@ class TypedQueryTest {
        (4,'AB', 'xx')
     """.trimIndent()
     )
-
-    DataSet.Response.fromRequest(
-      setup.db, setup.query,
-      DataSet.Request(search = "A !B", showCounts = true)
-    ).let {
-      assertEquals(1L, it.count?.inQuery)
-      assertEquals(1, it.data.size)
-      assertEquals("A", it.data[0].get("CONTENT"))
+    DataSet.Request(search = "A !B", showCounts = true).let { request ->
+      request.toResponse(setup.db, setup.query)
+        .let {
+          assertEquals(1L, it.count?.inQuery)
+          assertEquals(1, it.data.size)
+          assertEquals("A", it.data[0].get("CONTENT"))
+        }
     }
 
     assertEquals(
@@ -182,13 +181,14 @@ class TypedQueryTest {
         DataSet.Request(search = "A !C", showCounts = true)
       ).count?.inQuery
     )
-    assertEquals(
-      3L,
-      DataSet.Response.fromRequest(
-        setup.db, setup.query,
-        DataSet.Request(search = "!z", showCounts = true)
-      ).count?.inQuery
-    )
+
+    DataSet.Request(search = "!z", showCounts = true).let { req ->
+      req.toResponse(setup.db, setup.query).let {
+        assertEquals(3L, it.count?.inQuery)
+        assertEquals(3, it.data.size)
+      }
+
+    }
   }
 
   data class Setup<R : Record>(
@@ -213,15 +213,34 @@ class TypedQueryTest {
   fun setup(): Setup<Record> {
     return setup { db ->
       val EMAIL = DSL.table("EMAIL")
-      val EMAIL_ID = DSL.field("EMAIL_ID", Int::class.java)
-      val CONTENT = DSL.field("CONTENT", String::class.java)
-      val FROM = DSL.field("FROM_", String::class.java)
-      val ATTACHMENT = DSL.field("ATTACHMENT", String::class.java)
-      val CREATED_AT = DSL.field("CREATED_AT", OffsetDateTime::class.java)
-      db.createTable(EMAIL).column(EMAIL_ID).column(CONTENT).column(FROM).column(ATTACHMENT).column(CREATED_AT)
-        .execute()
-      DataSet.forTable(EMAIL) {
-        search("daysAgo") { s, _ ->
+      DataSet.buildForRecords {
+        val EMAIL_ID = field(DSL.field("EMAIL_ID", Int::class.java))
+        val CONTENT = field(DSL.field("CONTENT", String::class.java)) { f ->
+          search { s ->
+            f.containsIgnoreCase(s)
+          }
+        }
+        val FROM = field(DSL.field("FROM_EMAIL", String::class.java)) { f ->
+          search { s ->
+            f.eq(s)
+          }
+        }
+        val ATTACHMENT = field(DSL.field("ATTACHMENT", String::class.java)) { f ->
+          search { s ->
+            if (s.lowercase() == "true") {
+              f.isNull
+            } else {
+              null
+            }
+          }
+        }
+        val CREATED_AT = field(DSL.field("CREATED_AT", OffsetDateTime::class.java))
+
+        search("is_x", open = true) { s ->
+          if (s == "x") DSL.trueCondition()
+          else null
+        }
+        search("daysAgo") { s ->
           if (s.startsWith("<")) {
             val ltDaysAgo = s.drop(1).toLongOrNull()
             if (ltDaysAgo == null) null
@@ -236,33 +255,18 @@ class TypedQueryTest {
             else CREATED_AT.greaterOrEqual(OffsetDateTime.now().minusDays(daysAgo))
           }
         }
-        search("is_x", open = true) { s, _ ->
-          if (s == "x") DSL.trueCondition()
-          else null
-        }
-        field(ATTACHMENT) { f ->
-          search { s ->
-            if (s.lowercase() == "true") {
-              f.isNull
-            } else {
-              null
-            }
-          }
-        }
-        field(CONTENT) { f ->
-          search { s ->
-            f.containsIgnoreCase(s)
-          }
-        }
-        field(FROM) { f ->
-          search { s ->
-            f.eq(s)
-          }
-        }
-        autoDetectFields(db)
+
+        db.createTable(EMAIL)
+          .column(EMAIL_ID)
+          .column(CONTENT)
+          .column(FROM)
+          .column(ATTACHMENT)
+          .column(CREATED_AT)
+          .execute()
+      }.toTypedQuery { sql ->
+        sql.from(EMAIL)
       }
     }
-
   }
 
   @Test
@@ -328,43 +332,64 @@ class TypedQueryTest {
     val query = setup.query
     val queries = setup.queries
 
-    DataSet.Response.fromRequest(
-      db, query, DataSet.Request(
-        search = "x"
-      )
-    )
+    DataSet.Response.fromRequest(db, query, DataSet.Request(search = "x"))
     assertEquals(
       """
-            select *
-            from EMAIL
-            where (
-              "CONTENT" ilike (('%' || replace(
-                replace(
-                  replace('x', '!', '!!'),
-                  '%',
-                  '!%'
-                ),
-                '_',
-                '!_'
-              )) || '%') escape '!'
-              or "FROM_" = 'x'
-              or true
-            )
-            fetch next 50 rows only
+        select
+          "query"."EMAIL_ID",
+          "query"."CONTENT",
+          "query"."FROM_EMAIL",
+          "query"."ATTACHMENT",
+          "query"."CREATED_AT"
+        from (
+          select
+            EMAIL_ID "EMAIL_ID",
+            CONTENT "CONTENT",
+            FROM_EMAIL "FROM_EMAIL",
+            ATTACHMENT "ATTACHMENT",
+            CREATED_AT "CREATED_AT"
+          from EMAIL
+        ) "query"
+        where (
+          "CONTENT" ilike (('%' || replace(
+            replace(
+              replace('x', '!', '!!'),
+              '%',
+              '!%'
+            ),
+            '_',
+            '!_'
+          )) || '%') escape '!'
+          or "FROM_EMAIL" = 'x'
+          or true
+        )
+        fetch next 50 rows only
             """.trimIndent(), queries.last()
     )
 
-    DataSet.Response.fromRequest(
-      db, query, DataSet.Request(
-        search = "from:who,content:why"
-      )
-    )
-    assertEquals(
-      """
-            select *
-            from EMAIL
+    DataSet.Request(
+      search = "from_email:who,content:why"
+    ).let { req ->
+      req.toResponse(db, query).let { rsp ->
+        assertEquals(
+          """
+            select
+              "query"."EMAIL_ID",
+              "query"."CONTENT",
+              "query"."FROM_EMAIL",
+              "query"."ATTACHMENT",
+              "query"."CREATED_AT"
+            from (
+              select
+                EMAIL_ID "EMAIL_ID",
+                CONTENT "CONTENT",
+                FROM_EMAIL "FROM_EMAIL",
+                ATTACHMENT "ATTACHMENT",
+                CREATED_AT "CREATED_AT"
+              from EMAIL
+            ) "query"
             where (
-              "FROM_" = 'who'
+              "FROM_EMAIL" = 'who'
               or "CONTENT" ilike (('%' || replace(
                 replace(
                   replace('why', '!', '!!'),
@@ -377,51 +402,76 @@ class TypedQueryTest {
             )
             fetch next 50 rows only
             """.trimIndent(), queries.last()
-    )
+        )
+      }
+    }
+
 
     DataSet.Response.fromRequest(
       db, query, DataSet.Request(
-        search = "from:who("
+        search = "from_email:who("
       )
     )
     assertEquals(
       """
-            select *
-            from EMAIL
-            where "FROM_" = 'who('
-            fetch next 50 rows only
-            """.trimIndent(), queries.last()
+      select
+        "query"."EMAIL_ID",
+        "query"."CONTENT",
+        "query"."FROM_EMAIL",
+        "query"."ATTACHMENT",
+        "query"."CREATED_AT"
+      from (
+        select
+          EMAIL_ID "EMAIL_ID",
+          CONTENT "CONTENT",
+          FROM_EMAIL "FROM_EMAIL",
+          ATTACHMENT "ATTACHMENT",
+          CREATED_AT "CREATED_AT"
+        from EMAIL
+      ) "query"
+      where "FROM_EMAIL" = 'who('
+      fetch next 50 rows only
+      """.trimIndent(), queries.last()
     )
 
     val result = DataSet.Response.fromRequest(
       db, query, DataSet.Request(
-        search = """from:((, (this is parser torture""\")"""
+        search = """from_email:((, (this is parser torture""\")"""
       )
     )
     assertEquals(
-      """from:(\(, \(this is parser torture\"\"\")""",
+      """from_email:(\(, \(this is parser torture\"\"\")""",
       result.searchRendered
     )
-
-    val trippleQuote = "\"\"\""
     assertEquals(
       """
-            select *
-            from EMAIL
+            select
+              "query"."EMAIL_ID",
+              "query"."CONTENT",
+              "query"."FROM_EMAIL",
+              "query"."ATTACHMENT",
+              "query"."CREATED_AT"
+            from (
+              select
+                EMAIL_ID "EMAIL_ID",
+                CONTENT "CONTENT",
+                FROM_EMAIL "FROM_EMAIL",
+                ATTACHMENT "ATTACHMENT",
+                CREATED_AT "CREATED_AT"
+              from EMAIL
+            ) "query"
             where (
               (
-                "FROM_" = '('
-                or "FROM_" = '(this'
+                "FROM_EMAIL" = '('
+                or "FROM_EMAIL" = '(this'
               )
-              and "FROM_" = 'is'
-              and "FROM_" = 'parser'
-              and "FROM_" = 'torture$trippleQuote'
+              and "FROM_EMAIL" = 'is'
+              and "FROM_EMAIL" = 'parser'
+              and "FROM_EMAIL" = 'torture""${'"'}'
             )
             fetch next 50 rows only
-            """.trimIndent(), queries.last()
+        """.trimIndent(), queries.last()
     )
-
-    println()
   }
 
   @Test
@@ -501,10 +551,10 @@ class TypedQueryTest {
     val columns = rsp.columns
     assertNotNull(columns)
     assertEquals(columns.size, 4)
-    assertEquals(columns[0].name, "id")
-    assertEquals(columns[1].name, "name")
-    assertEquals(columns[2].name, "createdAt")
-    assertEquals(columns[3].name, "autoDetect")
+    assertEquals("ID", columns[0].name)
+    assertEquals("NAME", columns[1].name)
+    assertEquals("CREATED_AT", columns[2].name)
+    assertEquals("AUTO_DETECT", columns[3].name)
 
     val rsp2 = DataSet.Response.fromRequest(
       db, query, DataSet.Request(

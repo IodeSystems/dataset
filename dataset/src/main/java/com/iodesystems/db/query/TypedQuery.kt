@@ -7,7 +7,6 @@ import com.iodesystems.db.search.errors.SneakyInvalidSearchStringException
 import com.iodesystems.db.search.model.Conjunction
 import org.jooq.*
 import org.jooq.impl.DSL
-import java.util.*
 
 data class TypedQuery<T : Table<R>, R : Record, M>(
   val table: T,
@@ -21,6 +20,9 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
   val openSearches: List<String> = emptyList(),
   val lastSearchCorrected: String? = null
 ) {
+
+  val fieldsByNameLower by lazy { fields.mapKeys { it.key.lowercase() } }
+  val searchesByNameLower by lazy { searches.mapKeys { it.key.lowercase() } }
 
   enum class Nulls {
     FIRST, LAST
@@ -127,47 +129,54 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
       val searchParsed = searchParser.parse(search)
       for (term in searchParsed.terms) {
         val conditionProvider: ((s: String) -> Condition?)? = if (term.target != null) {
+          // We have a target!
           val target = term.target.lowercase()
-          val targetedSearch = searches[target]
+          // Check if we have a targeted search
+          val targetedSearch = searchesByNameLower[target]
           if (targetedSearch != null) {
             { s -> targetedSearch(s, table) }
           } else {
-            fields[target]?.search
+            fieldsByNameLower[target]?.search
           }
         } else {
+          // No targeted condition provider
           null
         }
         var termCondition: Condition? = null
         for (value in term.values) {
           if (conditionProvider != null) {
             val targetedSearchCondition = conditionProvider(value.value)
-            if (termCondition == null) {
-              termCondition = targetedSearchCondition
-              continue
+            termCondition = if (termCondition == null) {
+              targetedSearchCondition
             } else if (value.conjunction == Conjunction.AND) {
-              termCondition = DSL.and(termCondition, targetedSearchCondition)
-              continue
+              DSL.and(termCondition, targetedSearchCondition)
             } else {
-              termCondition = DSL.or(termCondition, targetedSearchCondition)
-              continue
+              DSL.or(termCondition, targetedSearchCondition)
             }
+            // Stop processing this term value
+            continue
           }
+          // No targeted search, so we'll search all open fields
           var fieldsCondition: Condition? = null
           for (field in fields.values) {
+            // Do we have a search for this field?
             val fieldSearch = field.search ?: continue
+            // Is this field open for searching?
             if (!field.open) continue
             val fieldSearchCondition = fieldSearch(value.value)
             fieldsCondition = fieldsCondition?.or(fieldSearchCondition) ?: fieldSearchCondition
           }
+
+          // Also perform open searches
           for (openSearch in openSearches) {
             val searchCondition = searches[openSearch]!!(value.value, table)
             fieldsCondition = fieldsCondition?.or(searchCondition) ?: searchCondition
           }
+          // Negate the condition if necessary
           if (value.negated) fieldsCondition = fieldsCondition?.not()
           termCondition = mergeCondition(termCondition, fieldsCondition, value.conjunction)
         }
         termsCondition = mergeCondition(termsCondition, termCondition, term.conjunction)
-
       }
       if (termsCondition != null) {
         searchConditions.add(termsCondition)
@@ -195,7 +204,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
   }
 
   fun order(field: String, sortOrder: SortOrder?, nulls: Nulls? = null): TypedQuery<T, R, M> {
-    val fieldConfiguration = fields[field.lowercase(Locale.getDefault())] ?: return this
+    val fieldConfiguration = fields[field] ?: return this
 
     return order(fieldConfiguration.field, sortOrder, fieldConfiguration.orderNulls ?: nulls)
   }
@@ -290,20 +299,8 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
   data class Builder<T : Table<R>, R : Record, M>(
     var query: TypedQuery<T, R, M>,
     var doDetectFields: Boolean = false,
-    var camelMapping: Boolean = true,
   ) {
 
-    fun disableAutoCamelMapping(set: Boolean = true) {
-      camelMapping = set
-    }
-
-    private fun mapFieldName(name: String): String {
-      if (!camelMapping) {
-        return name
-      }
-      return name.lowercase().split("_").joinToString("") { it.replaceFirstChar { c -> c.uppercase() } }
-        .replaceFirstChar { it.lowercase() }
-    }
 
     fun <T> field(
       fieldUnscoped: Field<T>, init: (FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit)? = null
@@ -312,11 +309,10 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
       val field =
         DSL.field(DSL.name(fieldUnscoped.qualifiedName.last()), fieldUnscoped.dataType)
       val builder = FieldConfiguration.Builder(field)
-      builder.name = mapFieldName(builder.name)
       init?.let { builder.it(field) }
       val built = builder.build()
       query = query.copy(
-        fields = query.fields + Pair(built.name.lowercase(), built),
+        fields = query.fields + Pair(built.name, built),
         order = query.order + (if (built.direction == null) emptyList() else listOf(
           built.field.sort(
             when (built.direction) {
@@ -329,11 +325,13 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     }
 
     fun search(
-      name: String, open: Boolean = false, search: (query: String, table: T) -> Condition?
+      name: String,
+      open: Boolean = false,
+      search: (query: String, table: T) -> Condition?
     ) {
       query = query.copy(
-        searches = query.searches + Pair(name.lowercase(), search),
-        openSearches = if (open) query.openSearches + name.lowercase() else query.openSearches
+        searches = query.searches + Pair(name, search),
+        openSearches = if (open) query.openSearches + name else query.openSearches
       )
     }
 
@@ -347,8 +345,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
       db: DSLContext, typesOnly: Boolean = false
     ) {
       DataSet(db, query.limit(0)).result().recordType().fields().map { field ->
-        val fieldName = mapFieldName(field.name).lowercase()
-        val existing = query.fields[fieldName]
+        val existing = query.fields[field.name]
         val dataType = field.dataType.converter.toType().simpleName
         if (existing == null) {
           if (!typesOnly) {
@@ -359,7 +356,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
         } else {
           query = query.copy(
             fields = query.fields + Pair(
-              existing.name.lowercase(), existing.copy(
+              field.name, existing.copy(
                 type = dataType
               )
             )

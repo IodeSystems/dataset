@@ -1,5 +1,6 @@
 package com.iodesystems.db.http
 
+import com.iodesystems.db.query.Fields
 import com.iodesystems.db.query.TypedQuery
 import org.jooq.DSLContext
 import org.jooq.Record
@@ -10,6 +11,31 @@ import java.util.*
 
 class DataSet {
   companion object {
+
+    fun buildForRecords(init: (Fields<Record>.() -> Unit)): Fields<Record> {
+      return build(Record::class.java,
+
+        init)
+    }
+
+    fun buildForMaps(init: (Fields<Map<String, *>>.() -> Unit)): Fields<Map<String, *>> {
+      @Suppress("UNCHECKED_CAST")
+      return build(Map::class.java as Class<Map<String, *>>, init)
+    }
+
+    fun <T> build(
+      mappedType: Class<T>,
+      init: (Fields<T>.() -> Unit)
+    ): Fields<T> {
+      return Fields(
+        mappedType = mappedType,
+        customMapper = null,
+        fields = mutableListOf(),
+        searches = mutableListOf(),
+        init = init
+      )
+    }
+
     fun <R : Record, M> forTable(
       table: Table<R>,
       mapper: (R) -> M,
@@ -131,7 +157,14 @@ class DataSet {
     val showCounts: Boolean? = null,
     val showColumns: Boolean? = null,
     val selection: Selection? = null
-  )
+  ) {
+    fun <T> toResponse(
+      db: DSLContext,
+      dataSet: TypedQuery<*, *, T>
+    ): Response<T> {
+      return Response.fromRequest(db, dataSet, this)
+    }
+  }
 
   data class Response<T>(
     val data: List<T>,
