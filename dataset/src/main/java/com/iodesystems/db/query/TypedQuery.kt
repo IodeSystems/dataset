@@ -32,6 +32,18 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
   val fieldsByNameLower by lazy { fields.mapKeys { it.key.lowercase() } }
   val searchesByNameLower by lazy { searches.mapKeys { it.key.lowercase() } }
 
+  fun <F> fieldConfiguration(field: Field<F>, alias: String? = null): FieldConfiguration<F>? {
+    val name = alias ?: fieldName(field.name).name.lowercase()
+    return fieldsByNameLower[name]?.let {
+      @Suppress("UNCHECKED_CAST")
+      it as FieldConfiguration<F>
+    }
+  }
+
+  fun <F> field(field: Field<F>, alias: String? = null): Field<F>? {
+    return fieldConfiguration(field, alias)?.field
+  }
+
   enum class Nulls {
     FIRST, LAST
   }
@@ -338,16 +350,9 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
         DSL.field(DSL.name(fieldUnscoped.qualifiedName.last()), fieldUnscoped.dataType)
       val builder = FieldConfiguration.Builder(field)
 
-      if (field.name.isCamelCase()) {
-        builder.name = field.name
-        builder.title = field.name.camelToTitleCase()
-      } else if (field.name.isSnakeCase()) {
-        builder.name = field.name.snakeToCamelCase()
-        builder.title = field.name.snakeToTitleCase()
-      } else {
-        builder.name = field.name
-        builder.title = field.name.titleCase()
-      }
+      val name = fieldName(field.name)
+      builder.name = name.name
+      builder.title = name.title
 
       init?.let { builder.it(field) }
       val built = builder.build()
@@ -408,6 +413,21 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
 
   companion object {
     val log = LoggerFactory.getLogger(TypedQuery::class.java)
+
+    data class FieldName(
+      val title: String,
+      val name: String,
+    )
+
+    fun fieldName(name: String): FieldName {
+      return if (name.isCamelCase()) {
+        FieldName(name.camelToTitleCase(), name)
+      } else if (name.isSnakeCase()) {
+        FieldName(name.snakeToTitleCase(), name.snakeToCamelCase())
+      } else {
+        FieldName(name.titleCase(), name)
+      }
+    }
 
     fun <R : Record, M> forTable(
       table: Table<R>, mapper: (R) -> M, init: (Builder<Table<R>, R, M>.() -> Unit)? = null
