@@ -390,7 +390,9 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
       db: DSLContext, typesOnly: Boolean = false
     ) {
       DataSet(db, query.limit(0)).result().recordType().fields().map { field ->
-        val existing = query.fields[field.name]
+        val existing = query.fields.values.firstOrNull {
+          it.field.name == field.name
+        }
         val dataType = field.dataType.converter.toType().simpleName
         if (existing == null) {
           if (!typesOnly) {
@@ -401,7 +403,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
         } else {
           query = query.copy(
             fields = query.fields + Pair(
-              field.name, existing.copy(
+              fieldName(field.name).name, existing.copy(
                 type = dataType
               )
             )
