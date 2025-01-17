@@ -2,31 +2,28 @@ package com.iodesystems.db.http
 
 import com.iodesystems.db.query.Fields
 import com.iodesystems.db.query.TypedQuery
-import org.jooq.DSLContext
-import org.jooq.Record
-import org.jooq.SortOrder
-import org.jooq.Table
+import org.jooq.*
 import org.jooq.impl.DSL
 import java.util.*
 
 class DataSet {
   companion object {
 
-    fun buildForRecords(init: (Fields<Record>.() -> Unit)): Fields<Record> {
+    fun buildForRecords(init: (Fields<Record>.(Fields<Record>) -> Unit)): Fields<Record> {
       return build(
         Record::class.java,
         init
       )
     }
 
-    fun buildForMaps(init: (Fields<Map<String, *>>.() -> Unit)): Fields<Map<String, *>> {
+    fun buildForMaps(init: (Fields<Map<String, *>>.(Fields<Map<String, *>>) -> Unit)): Fields<Map<String, *>> {
       @Suppress("UNCHECKED_CAST")
       return build(Map::class.java as Class<Map<String, *>>, init)
     }
 
     fun <T> build(
       mappedType: Class<T>,
-      init: (Fields<T>.() -> Unit)
+      init: (Fields<T>.(Fields<T>) -> Unit)
     ): Fields<T> {
       return Fields(
         mappedType = mappedType,
@@ -38,7 +35,9 @@ class DataSet {
     }
 
     fun <R : Record, M> forTable(
-      table: Table<R>,
+      table: (
+        Condition
+      ) -> Table<R>,
       mapper: (R) -> M,
       init: (TypedQuery.Builder<Table<R>, R, M>.() -> Unit)? = null
     ): TypedQuery<Table<R>, R, M> {
@@ -46,23 +45,40 @@ class DataSet {
     }
 
     fun <R : Record> forTable(
-      table: Table<R>,
+      table: (
+        Condition
+      ) -> Table<R>,
       init: (TypedQuery.Builder<Table<R>, R, R>.() -> Unit)? = null
     ): TypedQuery<Table<R>, R, R> {
       return TypedQuery.forTable(table, { it }, init)
+    }
+
+    fun <R : Record, M> forTable(
+      table: Table<R>,
+      mapper: (R) -> M,
+      init: (TypedQuery.Builder<Table<R>, R, M>.() -> Unit)? = null
+    ): TypedQuery<Table<R>, R, M> {
+      return TypedQuery.forTable({ c -> table.where(c) }, mapper, init)
+    }
+
+    fun <R : Record> forTable(
+      table: Table<R>,
+      init: (TypedQuery.Builder<Table<R>, R, R>.() -> Unit)? = null
+    ): TypedQuery<Table<R>, R, R> {
+      return TypedQuery.forTable({ c -> table.where(c) }, { it }, init)
     }
 
     fun <R : Record> forTableMaps(
       table: Table<R>,
       init: (TypedQuery.Builder<Table<R>, R, MutableMap<String, Any>>.() -> Unit)? = null
     ): TypedQuery<Table<R>, R, MutableMap<String, Any>> {
-      return TypedQuery.forTableMaps(table, init)
+      return TypedQuery.forTableMaps({ c -> table.where(c) }, init)
     }
 
     fun <R : Record> forTableRecords(
       table: Table<R>, init: (TypedQuery.Builder<Table<R>, R, R>.() -> Unit)? = null
     ): TypedQuery<Table<R>, R, R> {
-      return TypedQuery.forTableRecords(table, init)
+      return TypedQuery.forTableRecords({ c -> table.where(c) }, init)
     }
 
     enum class RequestTransform {

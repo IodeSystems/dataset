@@ -16,7 +16,7 @@ class Fields<T>(
   var customMapper: ((Record) -> T)? = null,
   private val fields: MutableList<Field<*>> = mutableListOf(),
   private val searches: MutableList<Search> = mutableListOf(),
-  init: (Fields<T>.() -> Unit),
+  init: (Fields<T>.(Fields<T>) -> Unit),
 ) : List<Field<*>> by fields {
 
   private val configuredFields = mutableMapOf<String, ConfiguredField<*>>()
@@ -28,7 +28,7 @@ class Fields<T>(
   )
 
   init {
-    init()
+    init(this)
   }
 
   fun fields(collection: Collection<Field<*>>) {
@@ -77,11 +77,13 @@ class Fields<T>(
   }
 
   fun <R : Record, TABLE : TableLike<R>> toTypedQuery(
-    block: (sql: SelectFromStep<Record>) -> TableLike<R>
+    block: (sql: SelectFromStep<Record>) -> SelectWhereStep<R>
   ): TypedQuery<Table<R>, R, T> {
-    val table = block(DSL.select(fields)).asTable("query")
     @Suppress("UNCHECKED_CAST")
-    return TypedQuery.forTable<R, T>(table, mapper as (Record) -> T) {
+    return TypedQuery.forTable<R, T>(
+      { c -> block(DSL.select(fields)).where(c).asTable("query") },
+      mapper as (Record) -> T
+    ) {
       val config = this
       configuredFields.values.forEach { (field, init) ->
         config.field(field) {
@@ -92,7 +94,7 @@ class Fields<T>(
         config.search(
           search.name,
           open = search.open
-        ) { query, _ ->
+        ) { query ->
           search.search(query)
         }
       }

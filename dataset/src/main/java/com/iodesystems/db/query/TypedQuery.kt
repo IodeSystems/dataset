@@ -17,14 +17,14 @@ import org.slf4j.LoggerFactory
 import java.util.stream.Stream
 
 data class TypedQuery<T : Table<R>, R : Record, M>(
-  val table: T,
+  val table: (condition: Condition) -> T,
   val mapper: (R) -> M,
   val conditions: List<Condition> = emptyList(),
   val offset: Int = 0,
   val limit: Int = 100,
   val order: List<SortField<*>> = emptyList(),
   val fields: Map<String, FieldConfiguration<*>> = emptyMap(),
-  val searches: Map<String, (query: String, table: T) -> Condition?> = emptyMap(),
+  val searches: Map<String, (query: String) -> Condition?> = emptyMap(),
   val openSearches: List<String> = emptyList(),
   val lastSearchCorrected: String? = null
 ) {
@@ -67,7 +67,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     }
 
     fun query(): SelectQuery<R> {
-      val jooqQuery = db.selectQuery(query.table)
+      val jooqQuery = db.selectQuery(query.table(DSL.and(query.conditions)))
       if (query.offset > 0) {
         jooqQuery.addOffset(query.offset)
       }
@@ -77,7 +77,6 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
       for (ordering in query.order) {
         jooqQuery.addOrderBy(ordering)
       }
-      jooqQuery.addConditions(query.conditions)
       return jooqQuery
     }
 
@@ -111,7 +110,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     }
 
     fun count(): Long {
-      return db.selectCount().from(query.table).where(query.conditions).fetchOne(0, Long::class.java)!!
+      return db.selectCount().from(query()).fetchOne(0, Long::class.java)!!
     }
 
     fun empty(): Boolean {
@@ -166,7 +165,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
           // Check if we have a targeted search
           val targetedSearch = searchesByNameLower[target]
           if (targetedSearch != null) {
-            { s -> targetedSearch(s, table) }
+            { s -> targetedSearch(s) }
           } else {
             val targetField = fieldsByNameLower[target]
             if (targetField == null) {
@@ -209,7 +208,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
 
           // Also perform open searches
           for (openSearch in openSearches) {
-            val searchCondition = searches[openSearch]!!(value.value, table)
+            val searchCondition = searches[openSearch]!!(value.value)
             fieldsCondition = fieldsCondition?.or(searchCondition) ?: searchCondition
           }
           // Negate the condition if necessary
@@ -292,9 +291,14 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     val primaryKey: Boolean = false,
     val type: String? = null,
     val open: Boolean = true,
-    val orderNulls: Nulls? = null
+    val orderNulls: Nulls? = null,
+    val mapper: Mapper<T, Any>? = null
   ) {
 
+    data class Mapper<A, B>(
+      val type: Class<B>,
+      val mapper: (A, Record) -> B
+    )
 
     data class Builder<T>(
       val field: Field<T>,
@@ -306,8 +310,10 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
       var primaryKey: Boolean = false,
       var type: String? = null,
       private var open: Boolean = true,
-      private var orderNulls: Nulls? = null
+      private var orderNulls: Nulls? = null,
+      private var mapper: Mapper<T, Any>? = null,
     ) {
+
       fun orderable(direction: Direction? = null, nulls: Nulls? = null) {
         this.direction = direction
         orderable = true
@@ -317,6 +323,15 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
       fun search(open: Boolean? = null, fn: (s: String) -> Condition?) {
         if (open != null) this.open = open
         search = fn
+      }
+
+      fun primaryKey() {
+        primaryKey = true
+      }
+
+      fun <B> map(type: Class<B>, fn: (T, record: Record) -> B) {
+        this.type = type.simpleName
+        this.mapper = Mapper(type, fn) as Mapper<T, Any>
       }
 
       fun build(): FieldConfiguration<T> {
@@ -343,11 +358,11 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
 
 
     fun <T> field(
-      fieldUnscoped: Field<T>, init: (FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit)? = null
+      fieldUnscoped: Field<T>,
+      init: (FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit)? = null
     ) {
       // Ensure that the field is scoped to the outside table
-      val field =
-        DSL.field(DSL.name(fieldUnscoped.qualifiedName.last()), fieldUnscoped.dataType)
+      val field = fieldUnscoped
       val builder = FieldConfiguration.Builder(field)
 
       val name = fieldName(field.name)
@@ -372,7 +387,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     fun search(
       name: String,
       open: Boolean = false,
-      search: (query: String, table: T) -> Condition?
+      search: (query: String) -> Condition?
     ) {
       query = query.copy(
         searches = query.searches + Pair(name, search),
@@ -432,7 +447,9 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     }
 
     fun <R : Record, M> forTable(
-      table: Table<R>, mapper: (R) -> M, init: (Builder<Table<R>, R, M>.() -> Unit)? = null
+      table: (condition: Condition) -> Table<R>,
+      mapper: (R) -> M,
+      init: (Builder<Table<R>, R, M>.() -> Unit)? = null
     ): TypedQuery<Table<R>, R, M> {
       val builder = Builder(
         TypedQuery(table = table, mapper = mapper)
@@ -442,13 +459,14 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     }
 
     fun <R : Record> forTableMaps(
-      table: Table<R>, init: (Builder<Table<R>, R, MutableMap<String, Any>>.() -> Unit)? = null
+      table: (condition: Condition) -> Table<R>,
+      init: (Builder<Table<R>, R, MutableMap<String, Any>>.() -> Unit)? = null
     ): TypedQuery<Table<R>, R, MutableMap<String, Any>> {
       return forTable(table, { r -> r.intoMap() }, init)
     }
 
     fun <R : Record> forTableRecords(
-      table: Table<R>, init: (Builder<Table<R>, R, R>.() -> Unit)? = null
+      table: (condition: Condition) -> Table<R>, init: (Builder<Table<R>, R, R>.() -> Unit)? = null
     ): TypedQuery<Table<R>, R, R> {
       return forTable(table, { r -> r }, init)
     }

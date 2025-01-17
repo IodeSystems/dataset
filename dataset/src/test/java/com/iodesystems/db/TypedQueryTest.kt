@@ -18,6 +18,7 @@ import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
+import kotlin.Throws
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.expect
@@ -152,6 +153,7 @@ class TypedQueryTest {
   @Test
   fun testNegationConditions() {
     val setup = setup()
+    @Suppress("SqlResolve")
     setup.db.execute(
       """
       INSERT INTO "EMAIL" (
@@ -191,13 +193,13 @@ class TypedQueryTest {
     }
   }
 
-  data class Setup<R : Record>(
+  data class Setup<R : Record, M>(
     val db: DefaultDSLContext,
-    val query: TypedQuery<Table<R>, R, R>,
+    val query: TypedQuery<Table<R>, R, M>,
     val queries: MutableList<String>
   )
 
-  fun <T : Record> setup(setup: (DSLContext) -> TypedQuery<Table<T>, T, T>): Setup<T> {
+  fun <T : Record, M> setup(setup: (DSLContext) -> TypedQuery<Table<T>, T, M>): Setup<T, M> {
     val queries = mutableListOf<String>()
     val config = DefaultConfiguration().apply {
       set(JdbcConnectionPool.create("jdbc:h2:mem:", "sa", "sa"))
@@ -210,7 +212,7 @@ class TypedQueryTest {
     return Setup(db, setup(db), queries)
   }
 
-  fun setup(): Setup<Record> {
+  fun setup(): Setup<Record, Record> {
     return setup { db ->
       val EMAIL = DSL.table("EMAIL")
       DataSet.buildForRecords {
@@ -264,9 +266,45 @@ class TypedQueryTest {
           .column(CREATED_AT)
           .execute()
       }.toTypedQuery { sql ->
-        sql.from(EMAIL).asTable()
+        sql.from(EMAIL)
       }
     }
+  }
+
+
+  @Test
+  fun testLazyInternalCondition() {
+    data class TestRecord(val field1: String)
+    val (db, query, queries) = setup { db ->
+      val table = DSL.table(DSL.name("tbl1"))
+      val field = DSL.field(DSL.name(table.name, "field1"), String::class.java)
+      db.createTable(table).column(field).execute()
+      DataSet.build(TestRecord::class.java) {
+        field(field) { f ->
+          search { s ->
+            f.eq(s)
+          }
+        }
+      }.toTypedQuery { sql ->
+        sql.from(table)
+      }
+    }
+    DataSet.Response.fromRequest(
+      db, query, DataSet.Request(
+        search = "x"
+      )
+    )
+    assertEquals(
+      """
+        select "query"."field1"
+        from (
+          select "tbl1"."field1" "field1"
+          from "tbl1"
+          where "field1" = 'x'
+        ) "query"
+        fetch next 50 rows only
+      """.trimIndent(), queries.last()
+    )
   }
 
   @Test
@@ -279,15 +317,13 @@ class TypedQueryTest {
       val field2 = DSL.field(DSL.name(table2.name, "field2"), String::class.java)
       // Qualify it
       db.createTable(table2).column(field2).execute()
-      DataSet.forTable(
-        db.select(
-          field,
-          field2
-        )
+      DataSet.forTable({ c ->
+        db.select(field, field2)
           .from(table)
           .join(table2).on(field.eq(field2))
+          .where(c)
           .asTable("TABLE_X")
-      ) {
+      }) {
         field(field) { f ->
           search { s ->
             f.eq(s)
@@ -315,11 +351,11 @@ class TypedQueryTest {
           from "tbl1"
             join "tbl2"
               on "tbl1"."field1" = "tbl2"."field2"
+          where (
+            "tbl1"."field1" = 'x'
+            or "tbl2"."field2" = 'x'
+          )
         ) "TABLE_X"
-        where (
-          "field1" = 'x'
-          or "field2" = 'x'
-        )
         fetch next 50 rows only
       """.trimIndent(), queries.last()
     )
@@ -335,21 +371,20 @@ class TypedQueryTest {
     DataSet.Response.fromRequest(db, query, DataSet.Request(search = "x"))
     assertEquals(
       """
+      select
+        "query"."EMAIL_ID",
+        "query"."CONTENT",
+        "query"."FROM_EMAIL",
+        "query"."ATTACHMENT",
+        "query"."CREATED_AT"
+      from (
         select
-          "query"."EMAIL_ID",
-          "query"."CONTENT",
-          "query"."FROM_EMAIL",
-          "query"."ATTACHMENT",
-          "query"."CREATED_AT"
-        from (
-          select
-            EMAIL_ID "EMAIL_ID",
-            CONTENT "CONTENT",
-            FROM_EMAIL "FROM_EMAIL",
-            ATTACHMENT "ATTACHMENT",
-            CREATED_AT "CREATED_AT"
-          from EMAIL
-        ) "query"
+          EMAIL_ID "EMAIL_ID",
+          CONTENT "CONTENT",
+          FROM_EMAIL "FROM_EMAIL",
+          ATTACHMENT "ATTACHMENT",
+          CREATED_AT "CREATED_AT"
+        from EMAIL
         where (
           "CONTENT" ilike (('%' || replace(
             replace(
@@ -363,8 +398,9 @@ class TypedQueryTest {
           or "FROM_EMAIL" = 'x'
           or true
         )
-        fetch next 50 rows only
-            """.trimIndent(), queries.last()
+      ) "query"
+      fetch next 50 rows only
+      """.trimIndent(), queries.last()
     )
 
     DataSet.Request(
@@ -373,21 +409,20 @@ class TypedQueryTest {
       req.toResponse(db, query).let { rsp ->
         assertEquals(
           """
+          select
+            "query"."EMAIL_ID",
+            "query"."CONTENT",
+            "query"."FROM_EMAIL",
+            "query"."ATTACHMENT",
+            "query"."CREATED_AT"
+          from (
             select
-              "query"."EMAIL_ID",
-              "query"."CONTENT",
-              "query"."FROM_EMAIL",
-              "query"."ATTACHMENT",
-              "query"."CREATED_AT"
-            from (
-              select
-                EMAIL_ID "EMAIL_ID",
-                CONTENT "CONTENT",
-                FROM_EMAIL "FROM_EMAIL",
-                ATTACHMENT "ATTACHMENT",
-                CREATED_AT "CREATED_AT"
-              from EMAIL
-            ) "query"
+              EMAIL_ID "EMAIL_ID",
+              CONTENT "CONTENT",
+              FROM_EMAIL "FROM_EMAIL",
+              ATTACHMENT "ATTACHMENT",
+              CREATED_AT "CREATED_AT"
+            from EMAIL
             where (
               "FROM_EMAIL" = 'who'
               or "CONTENT" ilike (('%' || replace(
@@ -400,8 +435,9 @@ class TypedQueryTest {
                 '!_'
               )) || '%') escape '!'
             )
-            fetch next 50 rows only
-            """.trimIndent(), queries.last()
+          ) "query"
+          fetch next 50 rows only
+          """.trimIndent(), queries.last()
         )
       }
     }
@@ -428,8 +464,8 @@ class TypedQueryTest {
           ATTACHMENT "ATTACHMENT",
           CREATED_AT "CREATED_AT"
         from EMAIL
+        where "FROM_EMAIL" = 'who('
       ) "query"
-      where "FROM_EMAIL" = 'who('
       fetch next 50 rows only
       """.trimIndent(), queries.last()
     )
@@ -445,32 +481,32 @@ class TypedQueryTest {
     )
     assertEquals(
       """
-            select
-              "query"."EMAIL_ID",
-              "query"."CONTENT",
-              "query"."FROM_EMAIL",
-              "query"."ATTACHMENT",
-              "query"."CREATED_AT"
-            from (
-              select
-                EMAIL_ID "EMAIL_ID",
-                CONTENT "CONTENT",
-                FROM_EMAIL "FROM_EMAIL",
-                ATTACHMENT "ATTACHMENT",
-                CREATED_AT "CREATED_AT"
-              from EMAIL
-            ) "query"
-            where (
-              (
-                "FROM_EMAIL" = '('
-                or "FROM_EMAIL" = '(this'
-              )
-              and "FROM_EMAIL" = 'is'
-              and "FROM_EMAIL" = 'parser'
-              and "FROM_EMAIL" = 'torture""${'"'}'
-            )
-            fetch next 50 rows only
-        """.trimIndent(), queries.last()
+      select
+        "query"."EMAIL_ID",
+        "query"."CONTENT",
+        "query"."FROM_EMAIL",
+        "query"."ATTACHMENT",
+        "query"."CREATED_AT"
+      from (
+        select
+          EMAIL_ID "EMAIL_ID",
+          CONTENT "CONTENT",
+          FROM_EMAIL "FROM_EMAIL",
+          ATTACHMENT "ATTACHMENT",
+          CREATED_AT "CREATED_AT"
+        from EMAIL
+        where (
+          (
+            "FROM_EMAIL" = '('
+            or "FROM_EMAIL" = '(this'
+          )
+          and "FROM_EMAIL" = 'is'
+          and "FROM_EMAIL" = 'parser'
+          and "FROM_EMAIL" = 'torture""${'"'}'
+        )
+      ) "query"
+      fetch next 50 rows only
+      """.trimIndent(), queries.last()
     )
   }
 
@@ -533,7 +569,7 @@ class TypedQueryTest {
           }
         }
       }
-      search("testSearch") { s, _ ->
+      search("testSearch") { s ->
         DSL.value("abc").eq(s)
       }
       autoDetectFields(db)
