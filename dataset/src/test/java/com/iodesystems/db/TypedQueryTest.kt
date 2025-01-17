@@ -3,7 +3,6 @@ package com.iodesystems.db
 import com.iodesystems.db.http.DataSet
 import com.iodesystems.db.query.TypedQuery
 import com.iodesystems.db.search.SearchParser
-import com.iodesystems.db.search.errors.InvalidSearchStringException
 import com.iodesystems.db.search.model.Conjunction
 import com.iodesystems.db.search.model.Term
 import com.iodesystems.fn.Fn
@@ -18,7 +17,6 @@ import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
-import kotlin.Throws
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.expect
@@ -82,7 +80,6 @@ class TypedQueryTest {
   }
 
   @Test
-  @Throws(InvalidSearchStringException::class)
   fun testSearchParser() {
     val searchParser = SearchParser()
     Assert.assertEquals(Fn.list(Term("A")), searchParser.parse("A").terms)
@@ -265,8 +262,9 @@ class TypedQueryTest {
           .column(ATTACHMENT)
           .column(CREATED_AT)
           .execute()
-      }.toTypedQuery { sql ->
+      }.toTypedQuery { sql, search ->
         sql.from(EMAIL)
+          .where(search)
       }
     }
   }
@@ -279,14 +277,16 @@ class TypedQueryTest {
       val table = DSL.table(DSL.name("tbl1"))
       val field = DSL.field(DSL.name(table.name, "field1"), String::class.java)
       db.createTable(table).column(field).execute()
-      DataSet.build(TestRecord::class.java) {
+      val fields = DataSet.build(TestRecord::class.java) {
         field(field) { f ->
           search { s ->
             f.eq(s)
           }
         }
-      }.toTypedQuery { sql ->
+      }
+      fields.toTypedQuery { sql, search ->
         sql.from(table)
+          .where(search)
       }
     }
     DataSet.Response.fromRequest(

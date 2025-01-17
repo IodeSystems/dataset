@@ -77,26 +77,20 @@ class Fields<T>(
   }
 
   fun <R : Record, TABLE : TableLike<R>> toTypedQuery(
-    block: (sql: SelectFromStep<Record>) -> SelectWhereStep<R>
+    block: (sql: SelectFromStep<Record>, search: Condition) -> TableLike<R>
   ): TypedQuery<Table<R>, R, T> {
     @Suppress("UNCHECKED_CAST")
     return TypedQuery.forTable<R, T>(
-      { c -> block(DSL.select(fields)).where(c).asTable("query") },
+      { c -> block(DSL.select(fields), c).asTable("query") },
       mapper as (Record) -> T
     ) {
       val config = this
-      configuredFields.values.forEach { (field, init) ->
-        config.field(field) {
-          init(field)
-        }
-      }
+      configuredFields.values.forEach { (field, init) -> config.field(field) { init(field) } }
       searches.forEach { search ->
         config.search(
           search.name,
           open = search.open
-        ) { query ->
-          search.search(query)
-        }
+        ) { query -> search.search(query) }
       }
     }
   }
