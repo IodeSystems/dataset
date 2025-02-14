@@ -298,9 +298,9 @@ class TypedQueryTest {
       """
         select "query"."field1"
         from (
-          select "tbl1"."field1" "field1"
+          select "tbl1"."field1"
           from "tbl1"
-          where "field1" = 'x'
+          where "tbl1"."field1" = 'x'
         ) "query"
         fetch next 50 rows only
       """.trimIndent(), queries.last()
@@ -372,21 +372,21 @@ class TypedQueryTest {
     assertEquals(
       """
       select
-        "query"."EMAIL_ID",
-        "query"."CONTENT",
-        "query"."FROM_EMAIL",
-        "query"."ATTACHMENT",
-        "query"."CREATED_AT"
+        "query".EMAIL_ID,
+        "query".CONTENT,
+        "query".FROM_EMAIL,
+        "query".ATTACHMENT,
+        "query".CREATED_AT
       from (
         select
-          EMAIL_ID "EMAIL_ID",
-          CONTENT "CONTENT",
-          FROM_EMAIL "FROM_EMAIL",
-          ATTACHMENT "ATTACHMENT",
-          CREATED_AT "CREATED_AT"
+          EMAIL_ID,
+          CONTENT,
+          FROM_EMAIL,
+          ATTACHMENT,
+          CREATED_AT
         from EMAIL
         where (
-          "CONTENT" ilike (('%' || replace(
+          CONTENT ilike (('%' || replace(
             replace(
               replace('x', '!', '!!'),
               '%',
@@ -395,7 +395,7 @@ class TypedQueryTest {
             '_',
             '!_'
           )) || '%') escape '!'
-          or "FROM_EMAIL" = 'x'
+          or FROM_EMAIL = 'x'
           or true
         )
       ) "query"
@@ -410,22 +410,22 @@ class TypedQueryTest {
         assertEquals(
           """
           select
-            "query"."EMAIL_ID",
-            "query"."CONTENT",
-            "query"."FROM_EMAIL",
-            "query"."ATTACHMENT",
-            "query"."CREATED_AT"
+            "query".EMAIL_ID,
+            "query".CONTENT,
+            "query".FROM_EMAIL,
+            "query".ATTACHMENT,
+            "query".CREATED_AT
           from (
             select
-              EMAIL_ID "EMAIL_ID",
-              CONTENT "CONTENT",
-              FROM_EMAIL "FROM_EMAIL",
-              ATTACHMENT "ATTACHMENT",
-              CREATED_AT "CREATED_AT"
+              EMAIL_ID,
+              CONTENT,
+              FROM_EMAIL,
+              ATTACHMENT,
+              CREATED_AT
             from EMAIL
             where (
-              "FROM_EMAIL" = 'who'
-              or "CONTENT" ilike (('%' || replace(
+              FROM_EMAIL = 'who'
+              or CONTENT ilike (('%' || replace(
                 replace(
                   replace('why', '!', '!!'),
                   '%',
@@ -451,20 +451,20 @@ class TypedQueryTest {
     assertEquals(
       """
       select
-        "query"."EMAIL_ID",
-        "query"."CONTENT",
-        "query"."FROM_EMAIL",
-        "query"."ATTACHMENT",
-        "query"."CREATED_AT"
+        "query".EMAIL_ID,
+        "query".CONTENT,
+        "query".FROM_EMAIL,
+        "query".ATTACHMENT,
+        "query".CREATED_AT
       from (
         select
-          EMAIL_ID "EMAIL_ID",
-          CONTENT "CONTENT",
-          FROM_EMAIL "FROM_EMAIL",
-          ATTACHMENT "ATTACHMENT",
-          CREATED_AT "CREATED_AT"
+          EMAIL_ID,
+          CONTENT,
+          FROM_EMAIL,
+          ATTACHMENT,
+          CREATED_AT
         from EMAIL
-        where "FROM_EMAIL" = 'who('
+        where FROM_EMAIL = 'who('
       ) "query"
       fetch next 50 rows only
       """.trimIndent(), queries.last()
@@ -482,27 +482,27 @@ class TypedQueryTest {
     assertEquals(
       """
       select
-        "query"."EMAIL_ID",
-        "query"."CONTENT",
-        "query"."FROM_EMAIL",
-        "query"."ATTACHMENT",
-        "query"."CREATED_AT"
+        "query".EMAIL_ID,
+        "query".CONTENT,
+        "query".FROM_EMAIL,
+        "query".ATTACHMENT,
+        "query".CREATED_AT
       from (
         select
-          EMAIL_ID "EMAIL_ID",
-          CONTENT "CONTENT",
-          FROM_EMAIL "FROM_EMAIL",
-          ATTACHMENT "ATTACHMENT",
-          CREATED_AT "CREATED_AT"
+          EMAIL_ID,
+          CONTENT,
+          FROM_EMAIL,
+          ATTACHMENT,
+          CREATED_AT
         from EMAIL
         where (
           (
-            "FROM_EMAIL" = '('
-            or "FROM_EMAIL" = '(this'
+            FROM_EMAIL = '('
+            or FROM_EMAIL = '(this'
           )
-          and "FROM_EMAIL" = 'is'
-          and "FROM_EMAIL" = 'parser'
-          and "FROM_EMAIL" = 'torture""${'"'}'
+          and FROM_EMAIL = 'is'
+          and FROM_EMAIL = 'parser'
+          and FROM_EMAIL = 'torture""${'"'}'
         )
       ) "query"
       fetch next 50 rows only

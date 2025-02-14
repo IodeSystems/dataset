@@ -54,14 +54,13 @@ class Fields<T>(
   fun <T> field(
     field: Field<T>, init: (FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit) = {}
   ): Field<T> {
-    val nonQualified = field.`as`(field.name)
     val existing = configuredFields[field.name]
     if (existing != null) {
       fields.remove(existing.first)
     }
-    fields.add(nonQualified as Field<*>)
+    fields.add(field as Field<*>)
     val builder: ConfiguredField<T> = Pair(
-      nonQualified, init
+      field, init
     )
     @Suppress("UNCHECKED_CAST")
     configuredFields[field.name] = builder as ConfiguredField<*>
