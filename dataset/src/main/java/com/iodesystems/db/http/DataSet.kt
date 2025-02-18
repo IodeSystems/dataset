@@ -34,52 +34,28 @@ class DataSet {
       )
     }
 
-    fun <R : Record, M> forTable(
-      table: (
-        Condition
-      ) -> Table<R>,
-      mapper: (R) -> M,
-      init: (TypedQuery.Builder<Table<R>, R, M>.() -> Unit)? = null
-    ): TypedQuery<Table<R>, R, M> {
-      return TypedQuery.forTable(table, mapper, init)
+    fun <R : Record> forTable(
+      table: Table<R>,
+      init: (TypedQuery.Builder<Select<R>, R, R>.() -> Unit)? = null
+    ): TypedQuery<Select<R>, R, R> {
+      return TypedQuery.forTable(DSL.selectFrom(table), { it }, init)
+    }
+
+    fun <R : Record, T> forTable(
+      table: Table<R>,
+      mapper: (Record) -> T,
+      init: (TypedQuery.Builder<Select<R>, R, T>.() -> Unit)? = null
+    ): TypedQuery<Select<R>, R, T> {
+      return TypedQuery.forTable(DSL.selectFrom(table), mapper, init)
     }
 
     fun <R : Record> forTable(
-      table: (
-        Condition
-      ) -> Table<R>,
-      init: (TypedQuery.Builder<Table<R>, R, R>.() -> Unit)? = null
-    ): TypedQuery<Table<R>, R, R> {
+      table: Select<R>,
+      init: (TypedQuery.Builder<Select<R>, R, R>.() -> Unit)? = null
+    ): TypedQuery<Select<R>, R, R> {
       return TypedQuery.forTable(table, { it }, init)
     }
 
-    fun <R : Record, M> forTable(
-      table: Table<R>,
-      mapper: (R) -> M,
-      init: (TypedQuery.Builder<Table<R>, R, M>.() -> Unit)? = null
-    ): TypedQuery<Table<R>, R, M> {
-      return TypedQuery.forTable({ c -> table.where(c) }, mapper, init)
-    }
-
-    fun <R : Record> forTable(
-      table: Table<R>,
-      init: (TypedQuery.Builder<Table<R>, R, R>.() -> Unit)? = null
-    ): TypedQuery<Table<R>, R, R> {
-      return TypedQuery.forTable({ c -> table.where(c) }, { it }, init)
-    }
-
-    fun <R : Record> forTableMaps(
-      table: Table<R>,
-      init: (TypedQuery.Builder<Table<R>, R, MutableMap<String, Any>>.() -> Unit)? = null
-    ): TypedQuery<Table<R>, R, MutableMap<String, Any>> {
-      return TypedQuery.forTableMaps({ c -> table.where(c) }, init)
-    }
-
-    fun <R : Record> forTableRecords(
-      table: Table<R>, init: (TypedQuery.Builder<Table<R>, R, R>.() -> Unit)? = null
-    ): TypedQuery<Table<R>, R, R> {
-      return TypedQuery.forTableRecords({ c -> table.where(c) }, init)
-    }
 
     enum class RequestTransform {
       SEARCH, PARTITION, ORDERING, SELECTION
@@ -110,7 +86,7 @@ class DataSet {
       return Response.fromRequest(db, dataSet, this)
     }
 
-    fun <T : Table<R>, R : Record, M> transform(
+    fun <T : Select<R>, R : Record, M> transform(
       query: TypedQuery<T, R, M>,
       transform: EnumSet<RequestTransform> = EnumSet.allOf(RequestTransform::class.java),
       unlimit: Boolean = false

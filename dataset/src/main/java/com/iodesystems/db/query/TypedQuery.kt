@@ -16,8 +16,8 @@ import org.jooq.impl.DSL
 import org.slf4j.LoggerFactory
 import java.util.stream.Stream
 
-data class TypedQuery<T : Table<R>, R : Record, M>(
-  val table: (condition: Condition) -> T,
+data class TypedQuery<T : Select<R>, R : Record, M>(
+  val table: T,
   val mapper: (R) -> M,
   val conditions: List<Condition> = emptyList(),
   val offset: Int = 0,
@@ -52,7 +52,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     val search: String, val condition: Condition?
   )
 
-  data class DataSet<T : Table<R>, R : Record, M>(val db: DSLContext, val query: TypedQuery<T, R, M>) {
+  data class DataSet<T : Select<R>, R : Record, M>(val db: DSLContext, val query: TypedQuery<T, R, M>) {
 
     fun field(name: String): FieldConfiguration<*>? {
       return query.fieldsByNameLower[name.lowercase()]
@@ -66,18 +66,29 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
       return copy(db = db, query = query.search(search))
     }
 
-    fun query(): SelectQuery<R> {
-      val jooqQuery = db.selectQuery(query.table(DSL.and(query.conditions)))
-      if (query.offset > 0) {
-        jooqQuery.addOffset(query.offset)
+    fun query(): Select<R> {
+      val withConditions = if (query.conditions.isNotEmpty()) {
+        query.table.`$where`(DSL.and(query.conditions))
+      } else {
+        query.table
       }
-      if (query.limit > -1) {
-        jooqQuery.addLimit(query.limit)
+      val tableOrdered = if (query.order.isNotEmpty()) {
+        withConditions.`$orderBy`(query.order)
+      } else {
+        withConditions
       }
-      for (ordering in query.order) {
-        jooqQuery.addOrderBy(ordering)
+      val tableWithOffset = if (query.offset > 0) {
+        tableOrdered.`$offset`(DSL.`val`(query.offset))
+      } else {
+        tableOrdered
       }
-      return jooqQuery
+      val tableWithLimit = if (query.limit > -1) {
+        tableWithOffset.`$limit`(DSL.`val`(query.limit))
+      } else {
+        tableWithOffset
+      }
+      tableWithLimit.attach(db.configuration())
+      return tableWithLimit
     }
 
     internal fun result(): Result<R> {
@@ -285,6 +296,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     val field: Field<T>,
     val name: String = field.name,
     val title: String = name,
+    val external: Boolean,
     val orderable: Boolean = false,
     val direction: Direction? = null,
     val search: ((String) -> Condition?)? = null,
@@ -292,7 +304,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     val type: String? = null,
     val open: Boolean = true,
     val orderNulls: Nulls? = null,
-    val mapper: Mapper<T, Any>? = null
+    val mapper: Mapper<T, Any>? = null,
   ) {
 
     data class Mapper<A, B>(
@@ -312,6 +324,7 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
       private var open: Boolean = true,
       private var orderNulls: Nulls? = null,
       private var mapper: Mapper<T, Any>? = null,
+      var external: Boolean = false
     ) {
 
       fun orderable(direction: Direction? = null, nulls: Nulls? = null) {
@@ -345,24 +358,24 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
           type = type,
           open = open,
           direction = direction,
-          orderNulls = orderNulls
+          orderNulls = orderNulls,
+          external = external,
         )
       }
     }
   }
 
-  data class Builder<T : Table<R>, R : Record, M>(
+  data class Builder<T : Select<R>, R : Record, M>(
     var query: TypedQuery<T, R, M>,
     var doDetectFields: Boolean = false,
   ) {
 
 
     fun <T> field(
-      fieldUnscoped: Field<T>,
+      field: Field<T>,
       init: (FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit)? = null
     ) {
       // Ensure that the field is scoped to the outside table
-      val field = fieldUnscoped
       val builder = FieldConfiguration.Builder(field)
 
       val name = fieldName(field.name)
@@ -402,29 +415,33 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     }
 
     fun autoDetectFields(
-      db: DSLContext, typesOnly: Boolean = false
+      db: DSLContext,
     ) {
-      DataSet(db, query.limit(0)).result().recordType().fields().map { field ->
-        val existing = query.fields.values.firstOrNull {
-          it.field.name == field.name
-        }
-        val dataType = field.dataType.converter.toType().simpleName
-        if (existing == null) {
-          if (!typesOnly) {
-            field(field) {
-              type = dataType
+      db.selectFrom(query.table).limit(0).fetch().recordType().fields()
+        .map { field ->
+          val existing = query.fields.values.firstOrNull {
+            it.field.name == field.name
+          }
+          val fieldType = field.dataType.converter.toType().simpleName
+          if (existing == null) {
+            val unqualifiedName = DSL.name(field.name)
+            val unqualifiedField = field.`as`(unqualifiedName)
+            field(unqualifiedField) {
+              external = true
+              type = fieldType
+            }
+          } else {
+            if (existing.type != fieldType) {
+              query = query.copy(
+                fields = query.fields + Pair(
+                  fieldName(existing.name).name, existing.copy(
+                    type = fieldType
+                  )
+                )
+              )
             }
           }
-        } else {
-          query = query.copy(
-            fields = query.fields + Pair(
-              fieldName(field.name).name, existing.copy(
-                type = dataType
-              )
-            )
-          )
         }
-      }
     }
   }
 
@@ -447,30 +464,41 @@ data class TypedQuery<T : Table<R>, R : Record, M>(
     }
 
     fun <R : Record, M> forTable(
-      table: (condition: Condition) -> Table<R>,
+      table: Select<R>,
       mapper: (R) -> M,
-      init: (Builder<Table<R>, R, M>.() -> Unit)? = null
-    ): TypedQuery<Table<R>, R, M> {
-      val builder = Builder(
-        TypedQuery(table = table, mapper = mapper)
-      )
+      init: (Builder<Select<R>, R, M>.() -> Unit)? = null
+    ): TypedQuery<Select<R>, R, M> {
+      val builder = Builder(TypedQuery(table = table, mapper = mapper))
       init?.let { builder.it() }
       return builder.query
     }
 
     fun <R : Record> forTableMaps(
-      table: (condition: Condition) -> Table<R>,
-      init: (Builder<Table<R>, R, MutableMap<String, Any>>.() -> Unit)? = null
-    ): TypedQuery<Table<R>, R, MutableMap<String, Any>> {
+      table: Select<R>,
+      init: (Builder<Select<R>, R, MutableMap<String, Any>>.() -> Unit)? = null
+    ): TypedQuery<Select<R>, R, MutableMap<String, Any>> {
       return forTable(table, { r -> r.intoMap() }, init)
     }
 
     fun <R : Record> forTableRecords(
-      table: (condition: Condition) -> Table<R>, init: (Builder<Table<R>, R, R>.() -> Unit)? = null
-    ): TypedQuery<Table<R>, R, R> {
+      table: Select<R>, init: (Builder<Select<R>, R, R>.() -> Unit)? = null
+    ): TypedQuery<Select<R>, R, R> {
       return forTable(table, { r -> r }, init)
     }
   }
+}
+
+private fun <K, V> Map<K, V>.partition(function: (Map.Entry<K, V>) -> Boolean): Pair<Map<K, V>, Map<K, V>> {
+  val first = mutableMapOf<K, V>()
+  val second = mutableMapOf<K, V>()
+  for (entry in entries) {
+    if (function(entry)) {
+      first[entry.key] = entry.value
+    } else {
+      second[entry.key] = entry.value
+    }
+  }
+  return Pair(first, second)
 }
 
 

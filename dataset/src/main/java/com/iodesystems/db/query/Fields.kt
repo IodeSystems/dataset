@@ -75,12 +75,12 @@ class Fields<T>(
     searches.add(Search(name, open, search))
   }
 
-  fun <R : Record, TABLE : TableLike<R>> toTypedQuery(
-    block: (sql: SelectFromStep<Record>, search: Condition) -> TableLike<R>
-  ): TypedQuery<Table<R>, R, T> {
+  fun <R : Record, TABLE : Select<R>> toTypedQuery(
+    block: (sql: SelectFromStep<Record>) -> Select<R>
+  ): TypedQuery<Select<R>, R, T> {
     @Suppress("UNCHECKED_CAST")
     return TypedQuery.forTable<R, T>(
-      { c -> block(DSL.select(fields), c).asTable("query") },
+      block(DSL.select(fields)),
       mapper as (Record) -> T
     ) {
       val config = this
@@ -116,6 +116,13 @@ class Fields<T>(
     // Otherwise, we expect a data class with a constructor that matches our fields
     // Validate that mappedType is a data class has a constructor with our fields
     val errors = mutableListOf<String>()
+    // Check for map type
+    if (mappedType == Map::class.java) {
+      return@lazy { record: Record ->
+        record.intoMap()
+      }
+    }
+
     val constructor = mappedType.declaredConstructors.firstOrNull()
     if (constructor == null) {
       errors.add("Type $mappedType does not have a constructor")
