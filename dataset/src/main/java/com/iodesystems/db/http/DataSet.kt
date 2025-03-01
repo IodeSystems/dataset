@@ -204,15 +204,21 @@ class DataSet {
             count = Count(inPartition, inPartition)
           } else {
             val inPartition = dataSet.count()
-            dataSet = dataSet.search(request.search)
-            val inQuery = dataSet.count()
-            count = Count(inPartition, inQuery)
+            if (inPartition == 0L) {
+              count = Count(0, 0)
+            } else {
+              dataSet = dataSet.search(request.search)
+              val inQuery = dataSet.count()
+              count = Count(inPartition, inQuery)
+            }
           }
         } else {
           if (!request.search.isNullOrEmpty()) {
             dataSet = dataSet.search(request.search)
           }
         }
+
+        val shouldQuery = request.showCounts != true || (count?.inQuery ?: 0) > 0
 
         // Apply ordering
         if (!request.ordering.isNullOrEmpty()) {
@@ -224,10 +230,13 @@ class DataSet {
             )
           }
         }
-        // Apply limit and offset
         val page = request.page ?: 0
         val pageSize = request.pageSize ?: 50
-        val data = dataSet.page(page, pageSize)
+        val data = if (shouldQuery) {
+          dataSet.page(page, pageSize)
+        } else {
+          emptyList()
+        }
         // Do we even want these columns?
         val columns = if (request.showColumns == true) {
           dataSet.query.fields.values.map { field ->
