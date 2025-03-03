@@ -21,7 +21,7 @@ data class TypedQuery<T : Select<R>, R : Record, M>(
   val mapper: (R) -> M,
   val conditions: List<Condition> = emptyList(),
   val offset: Int = 0,
-  val limit: Int = 100,
+  val limit: Int = -1,
   val order: List<SortField<*>> = emptyList(),
   val fields: Map<String, FieldConfiguration<*>> = emptyMap(),
   val searches: Map<String, (query: String) -> Condition?> = emptyMap(),
