@@ -367,15 +367,19 @@ class TypedQueryTest {
         CREATED_AT
       from EMAIL
       where (
-        CONTENT ilike (('%' || replace(
+        lower(CONTENT) like ('%' || replace(
           replace(
-            replace('x', '!', '!!'),
+            replace(
+              lower('x'),
+              '!',
+              '!!'
+            ),
             '%',
             '!%'
           ),
           '_',
           '!_'
-        )) || '%') escape '!'
+        ) || '%') escape '!'
         or FROM_EMAIL = 'x'
         or true
       )
@@ -398,15 +402,19 @@ class TypedQueryTest {
           from EMAIL
           where (
             FROM_EMAIL = 'who'
-            or CONTENT ilike (('%' || replace(
+            or lower(CONTENT) like ('%' || replace(
               replace(
-                replace('why', '!', '!!'),
+                replace(
+                  lower('why'),
+                  '!',
+                  '!!'
+                ),
                 '%',
                 '!%'
               ),
               '_',
               '!_'
-            )) || '%') escape '!'
+            ) || '%') escape '!'
           )
           fetch next 50 rows only
           """.trimIndent(), queries.last()
