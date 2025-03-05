@@ -68,7 +68,13 @@ data class TypedQuery<T : Select<R>, R : Record, M>(
 
     fun query(): Select<R> {
       val withConditions = if (query.conditions.isNotEmpty()) {
-        query.table.`$where`(DSL.and(query.conditions))
+        // Merge conditions if we have them
+        val existingConditions = query.table.`$where`()
+        if (existingConditions != null) {
+          query.table.`$where`(DSL.and(query.conditions + existingConditions))
+        } else {
+          query.table.`$where`(DSL.and(query.conditions))
+        }
       } else {
         query.table
       }
