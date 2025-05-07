@@ -212,7 +212,7 @@ class TypedQueryTest {
   fun setup(): Setup<Record, Record> {
     return setup { db ->
       val EMAIL = DSL.table("EMAIL")
-      DataSet.buildForRecords {
+      DataSet.build {
         val EMAIL_ID = field(DSL.field("EMAIL_ID", Int::class.java))
         val CONTENT = field(DSL.field("CONTENT", String::class.java)) { f ->
           search { s ->

@@ -9,7 +9,7 @@ import java.util.*
 class DataSet {
   companion object {
 
-    fun buildForRecords(init: (Fields<Record>.(Fields<Record>) -> Unit)): Fields<Record> {
+    fun build(init: (Fields<Record>.(Fields<Record>) -> Unit)): Fields<Record> {
       return build(
         Record::class.java,
         init
