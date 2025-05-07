@@ -197,6 +197,7 @@ signing {
 }
 
 tasks.register("releaseStripSnapshotCommitAndTag") {
+  dependsOn(tasks.test)
   group = "release"
   doLast {
     val status = "git status --porcelain".bash().trim()
@@ -207,7 +208,6 @@ tasks.register("releaseStripSnapshotCommitAndTag") {
     val newVersion = oldVersion.removeSuffix("-SNAPSHOT")
     writeVersion(newVersion)
     // Validate build
-    "./gradlew clean build test".bash()
     "git add build.gradle.kts".bash()
     "git commit -m 'Release $newVersion'".bash()
     "git tag -a v$newVersion -m 'Release $newVersion'".bash()
