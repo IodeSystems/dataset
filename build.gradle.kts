@@ -82,7 +82,7 @@ tasks {
       )
     }
   }
-  register("generateParser") {
+  val parser = register("generateParser") {
     group = "antlr"
     dependsOn(lexer)
     doLast {
@@ -93,19 +93,16 @@ tasks {
       )
     }
   }
+  compileKotlin {
+    dependsOn(parser)
+  }
+
 }
 
 sourceSets {
   main {
     java {
       srcDir("$rootDir/src/main/java-generated")
-
-    }
-    kotlin {
-      srcDir("$rootDir/src/main/kotlin")
-    }
-    resources {
-      srcDir("$rootDir/src/main/resources")
     }
   }
 }
@@ -209,6 +206,8 @@ tasks.register("releaseStripSnapshotCommitAndTag") {
     val oldVersion = version.toString()
     val newVersion = oldVersion.removeSuffix("-SNAPSHOT")
     writeVersion(newVersion)
+    // Validate build
+    "./gradlew clean build test".bash()
     "git add build.gradle.kts".bash()
     "git commit -m 'Release $newVersion'".bash()
     "git tag -a v$newVersion -m 'Release $newVersion'".bash()
