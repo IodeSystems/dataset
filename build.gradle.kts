@@ -5,7 +5,7 @@ import java.io.InputStreamReader
 import java.time.Duration
 
 group = "com.iodesystems.dataset"
-version = "7.0.4"
+version = "7.0.5-SNAPSHOT"
 description =
   "dataset is a simple query language parser that converts user queries to SQL conditions (using Antlr4 and JOOQ) with an aim for least surprise."
 
@@ -225,10 +225,7 @@ tasks.register("releaseRevert") {
   }
 }
 tasks.register("releasePublish") {
-  dependsOn(tasks.clean)
-  dependsOn(tasks.build)
-  dependsOn(tasks.publish)
-  dependsOn(tasks.closeAndReleaseStagingRepositories)
+  dependsOn(tasks.clean,tasks.build,tasks.publish,tasks.closeAndReleaseStagingRepositories)
   doLast {
     val oldVersion = version.toString()
     val newVersion = generateVersion("dev")
