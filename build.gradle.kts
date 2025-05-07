@@ -5,7 +5,7 @@ import java.io.InputStreamReader
 import java.time.Duration
 
 group = "com.iodesystems.dataset"
-version = "7.0.2"
+version = "7.0.3-SNAPSHOT"
 description =
   "dataset is a simple query language parser that converts user queries to SQL conditions (using Antlr4 and JOOQ) with an aim for least surprise."
 
