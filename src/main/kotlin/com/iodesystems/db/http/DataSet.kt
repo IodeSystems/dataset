@@ -178,7 +178,7 @@ class DataSet {
   ) {
     data class Count(
       val inPartition: Long,
-      val inQuery: Long
+      val inQuery: Long,
     )
 
     companion object {
@@ -186,7 +186,8 @@ class DataSet {
       fun <T> fromRequest(
         db: DSLContext,
         query: TypedQuery<*, *, T>,
-        request: Request
+        request: Request,
+        defaultPageSize: Int = 50,
       ): Response<T> {
         var dataSet = query.data(db)
 
@@ -231,7 +232,7 @@ class DataSet {
           }
         }
         val page = request.page ?: 0
-        val pageSize = request.pageSize ?: 50
+        val pageSize = request.pageSize ?: defaultPageSize
         val data = if (shouldQuery) {
           dataSet.page(page, pageSize)
         } else {

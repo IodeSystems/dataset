@@ -159,7 +159,8 @@ data class TypedQuery<T : Select<R>, R : Record, M>(
       return this
     }
     return copy(
-      conditions = conditions + rendered.condition, lastSearchCorrected = rendered.search
+      conditions = conditions + rendered.condition,
+      lastSearchCorrected = rendered.search
     )
   }
 
@@ -232,6 +233,7 @@ data class TypedQuery<T : Select<R>, R : Record, M>(
           if (value.negated) fieldsCondition = fieldsCondition?.not()
           termCondition = mergeCondition(termCondition, fieldsCondition, value.conjunction)
         }
+        if (term.negated) termCondition = termCondition?.not()
         termsCondition = mergeCondition(termsCondition, termCondition, term.conjunction)
       }
       if (termsCondition != null) {

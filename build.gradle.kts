@@ -1,7 +1,6 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import java.io.BufferedReader
-import java.io.InputStreamReader
+import org.jetbrains.kotlin.konan.file.File
 import java.time.Duration
 
 group = "com.iodesystems.dataset"
@@ -43,30 +42,28 @@ tasks {
 
     val compileOnlyDepFiles = configurations.compileClasspath.get().files
     File(outputDir).mkdirs()
+    val output = "$outputDir/$pkgPath".quoteDir()
+    val target = "$inputDir/$grammarFile".quoteDir()
 
-    val cmd = arrayOf(
-      "java",
-      "-classpath", compileOnlyDepFiles.joinToString(":") { it.absolutePath },
-      "org.antlr.v4.Tool",
-      "-o", "$outputDir/$pkgPath",
-      "-package", packageName,
-      "-lib", outputDir,
-      "$inputDir/$grammarFile"
-    )
+    val cmd = """
+      java \
+        -classpath ${compileOnlyDepFiles.joinToString(":") { it.absolutePath }} \
+        org.antlr.v4.Tool \
+        -o $output \
+        -package $packageName \
+        -lib ${outputDir.quoteDir()} \
+        $target
+    """.trimIndent()
 
-    println("exec ~= ${cmd.joinToString(" ")}")
-    val exec = Runtime.getRuntime().exec(cmd)
-    val messages = BufferedReader(InputStreamReader(exec.errorStream)).use { err ->
-      generateSequence { err.readLine() }.toList()
-    }
-    val result = exec.waitFor()
+    val bash = cmd.bash()
 
-    if (result != 0) {
+
+    if (bash.exitCode != 0) {
       throw RuntimeException(
         """
-        | antlr exec ~= ${cmd.joinToString(" ")}
-        | failed with code=${result} because:
-        |${messages.joinToString("\n") { "    " + it.trim() }}
+        | antlr exec ~= ${cmd}
+        | failed with code=${bash.exitCode} because:
+        |${bash.output}
         """.trimMargin()
       )
     }
@@ -200,7 +197,7 @@ tasks.register("releaseStripSnapshotCommitAndTag") {
   dependsOn(tasks.test)
   group = "release"
   doLast {
-    val status = "git status --porcelain".bash().trim()
+    val status = "git status --porcelain".bash().output.trim()
     if (status.isNotEmpty()) {
       throw GradleException("There are changes in the working directory:\n$status")
     }
@@ -225,7 +222,7 @@ tasks.register("releaseRevert") {
   }
 }
 tasks.register("releasePublish") {
-  dependsOn(tasks.clean,tasks.build,tasks.publish,tasks.closeAndReleaseStagingRepositories)
+  dependsOn(tasks.clean, tasks.build, tasks.publish, tasks.closeAndReleaseStagingRepositories)
   doLast {
     val oldVersion = version.toString()
     val newVersion = generateVersion("dev")
@@ -278,34 +275,57 @@ fun writeVersion(newVersion: String, oldVersion: String = version.toString()) {
   buildFile.writeText(newContent)
 }
 
-private fun String.bash(): String {
+private fun String.quoteDir(): String {
+  // Escape & quote
+  val escaped = replace("\\", "\\\\").replace("\"", "\\\"")
+  return "\"$escaped\""
+}
+
+data class BashResult(
+  val exitCode: Int,
+  val output: String
+)
+
+private fun String.bash(): BashResult {
   val process = ProcessBuilder(
-    "bash", "-c", this
-  ).start()
-  var content = ""
+    "/usr/bin/env", "bash", "-c", this
+  )
+    .also { it.environment()["PATH"] = "/usr/local/bin:/usr/bin:/bin" }
+    .start()
+  val output = mutableListOf<String>()
   val er = Thread {
     process.errorStream.reader().useLines { lines ->
       lines.forEach {
         println(it)
+        output += it
       }
     }
   }
   val out = Thread {
-    content = process.inputStream.reader().useLines { lines ->
-      lines.map {
-        println(it)
-        it
-      }.joinToString("\n")
+    process.inputStream.reader().useLines { lines ->
+      lines.forEach {
+        output += it
+      }
     }
   }
   er.start()
   out.start()
-  process.waitFor().also { code ->
+
+  val exitCode = process.waitFor().also { code ->
     er.join()
     out.join()
     if (code != 0) {
-      throw GradleException("Failed ($code) to execute command: $this")
+      throw GradleException(
+        """
+        Failed ($code) to execute command: $this
+        Output:
+        ${output.joinToString("\n")}
+      """.trimIndent()
+      )
     }
   }
-  return content
+  return BashResult(
+    exitCode = exitCode,
+    output = output.joinToString("\n")
+  )
 }

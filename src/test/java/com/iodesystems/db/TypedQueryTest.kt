@@ -23,6 +23,131 @@ import kotlin.test.expect
 class TypedQueryTest {
 
   @Test
+  fun testGroupNegation() {
+    val searchParser = SearchParser()
+    val result = searchParser.parse("! ( a , b )")
+    assertEquals(1, result.terms.size)
+    // Ensure negated
+    assertEquals(true, result.terms[0].negated)
+  }
+
+  @Test
+  fun testLastNegation(){
+    val (db, query, queries) = setup { db ->
+      val table = DSL.table(DSL.name("tbl1"))
+      val field = DSL.field(DSL.name(table.name, "field1"), String::class.java)
+      val field2 = DSL.field(DSL.name(table.name, "field2"), String::class.java)
+      db.createTable(table)
+        .column(field)
+        .column(field2)
+        .execute()
+      DataSet.forTable(
+        table
+      ) {
+        field(field) { f ->
+          search { s ->
+            f.eq(s)
+          }
+        }
+        field(field2) { f ->
+          search { s ->
+            f.eq(s)
+          }
+        }
+        autoDetectFields(db)
+      }
+    }
+
+    DataSet.Response.fromRequest(
+      db, query, DataSet.Request(
+        search = "A !B"
+      )
+    ).let { result ->
+      assertEquals(
+        "A !B",
+        result.searchRendered
+      )
+      assertEquals(
+        """
+        select *
+        from "tbl1"
+        where (
+          (
+            "tbl1"."field1" = 'A'
+            or "tbl1"."field2" = 'A'
+          )
+          and not (
+            "tbl1"."field1" = 'B'
+            or "tbl1"."field2" = 'B'
+          )
+        )
+        fetch next 50 rows only
+      """.trimIndent(),
+        queries.last()
+      )
+    }
+  }
+
+  @Test
+  fun testGroupNegationSearch() {
+    val (db, query, queries) = setup { db ->
+      val table = DSL.table(DSL.name("tbl1"))
+      val field = DSL.field(DSL.name(table.name, "field1"), String::class.java)
+      val field2 = DSL.field(DSL.name(table.name, "field2"), String::class.java)
+      db.createTable(table)
+        .column(field)
+        .column(field2)
+        .execute()
+      DataSet.forTable(
+        table
+      ) {
+        field(field) { f ->
+          search { s ->
+            f.eq(s)
+          }
+        }
+        field(field2) { f ->
+          search { s ->
+            f.eq(s)
+          }
+        }
+        autoDetectFields(db)
+      }
+    }
+    DataSet.Response.fromRequest(
+      db, query, DataSet.Request(
+        search = """!(a,b c)"""
+      )
+    ).let { result ->
+      assertEquals(
+        """!(a,b c)""",
+        result.searchRendered
+      )
+      assertEquals(
+        """
+        select *
+        from "tbl1"
+        where not (
+          (
+            "tbl1"."field1" = 'a'
+            or "tbl1"."field2" = 'a'
+            or "tbl1"."field1" = 'b'
+            or "tbl1"."field2" = 'b'
+          )
+          and (
+            "tbl1"."field1" = 'c'
+            or "tbl1"."field2" = 'c'
+          )
+        )
+        fetch next 50 rows only
+      """.trimIndent(),
+        queries.last()
+      )
+    }
+
+  }
+
+  @Test
   fun testSearchParserConformance() {
     val searchParser = SearchParser()
     searchParser.parse("A")
@@ -45,16 +170,16 @@ class TypedQueryTest {
   fun testEmptyNegation() {
     val searchParser = SearchParser()
     searchParser.parse("""!""").apply {
-      assertEquals("!", search)
+      assertEquals("\\!", search)
     }
     searchParser.parse("""! """).apply {
-      assertEquals("! ", search)
+      assertEquals("\\!", search)
     }
     searchParser.parse(""" ! """).apply {
-      assertEquals(" ! ", search)
+      assertEquals("\\!", search)
     }
     searchParser.parse(""" ! !! ! !!""").apply {
-      assertEquals(" ! !\\! ! !\\!", search)
+      assertEquals("! !\\! ! !\\!", search)
     }
   }
 
@@ -81,19 +206,20 @@ class TypedQueryTest {
   @Test
   fun testSearchParser() {
     val searchParser = SearchParser()
-    Assert.assertEquals(listOf(Term("A")), searchParser.parse("A").terms)
-    Assert.assertEquals(listOf(Term("A"), Term("B")), searchParser.parse("A B").terms)
-    Assert.assertEquals(listOf(Term("A"), Term("B")), searchParser.parse("A B").terms)
+    Assert.assertEquals(listOf(Term.simple("A")), searchParser.parse("A").terms)
+    Assert.assertEquals(listOf(Term.simple("A"), Term.simple("B")), searchParser.parse("A B").terms)
+    Assert.assertEquals(listOf(Term.simple("A"), Term.simple("B")), searchParser.parse("A B").terms)
     Assert.assertEquals(
-      listOf(Term("A"), Term("B"), Term(Conjunction.OR, "C")), searchParser.parse("A B , C").terms
+      listOf(Term.simple("A"), Term.simple("B"), Term.simple("C", Conjunction.OR)).toString(),
+      searchParser.parse("A B , C").terms.toString()
     )
     Assert.assertEquals(
       listOf(
-        Term("A"),
-        Term("B"),
-        Term(Conjunction.OR, "C"),
-        Term("target", Conjunction.AND, "Y")
-      ), searchParser.parse("A B , C target:Y").terms
+        Term.simple("A"),
+        Term.simple("B"),
+        Term.simple("C", Conjunction.OR),
+        Term.simple(value = "Y", conjunction = Conjunction.AND, target = "target")
+      ).toString(), searchParser.parse("A B , C target:Y").terms.toString()
     )
   }
 
@@ -116,11 +242,24 @@ class TypedQueryTest {
 
   @Test
   fun testNegation() {
-    val result = SearchParser().parse("A !B")
-    assertEquals("A", result.terms[0].values[0].value)
-    assertEquals("B", result.terms[1].values[0].value)
-    assertEquals(false, result.terms[0].values[0].negated)
-    assertEquals(true, result.terms[1].values[0].negated)
+
+    SearchParser().parse("A a:!(!B,C)").let { result ->
+      // Assert search parsed properly
+      assertEquals("A a:!(!B,C)", result.search)
+
+      assertEquals(true, result.terms[1].negated)
+      assertEquals(true, result.terms[1].values[0].negated)
+      assertEquals(false, result.terms[1].values[1].negated)
+    }
+
+    SearchParser().parse("A !B").let { result ->
+      assertEquals("A", result.terms[0].values[0].value)
+      assertEquals("B", result.terms[1].values[0].value)
+      assertEquals(false, result.terms[0].values[0].negated)
+      // The parent term takes the negation
+      assertEquals(true, result.terms[1].negated)
+      assertEquals(false, result.terms[1].values[0].negated)
+    }
   }
 
   @Test
@@ -326,7 +465,6 @@ class TypedQueryTest {
         }
         autoDetectFields(db)
       }
-
     }
     DataSet.Response.fromRequest(
       db, query, DataSet.Request(

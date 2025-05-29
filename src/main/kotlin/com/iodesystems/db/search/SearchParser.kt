@@ -46,6 +46,10 @@ class SearchParser {
             throw UnwantedTokenException(recognizer.currentToken.stopIndex)
           }
 
+          is NoViableAltException -> {
+            throw UnwantedTokenException(e.offendingToken.startIndex - 1)
+          }
+
           else -> {
             throw SneakyInvalidSearchStringException(
               "Error parsing search at: " + e.offendingToken.text + " in $search", e
@@ -62,10 +66,10 @@ class SearchParser {
 
   @Throws(InvalidSearchStringException::class)
   fun parse(search: String?): ParseResult {
-    var searchString = search ?: ""
+    var searchString = (search ?: "").trim()
     var lastException: Exception? = null
     try {
-      for (i in 1..1000) {
+      (1..1000).forEach { i ->
         try {
           return parseInternal(searchString)
         } catch (e: UnwantedTokenException) {
@@ -93,7 +97,11 @@ class SearchParser {
       super.enterSimpleTerm(ctx)
       currentTermValues = mutableListOf()
 
-      currentTerm = Term(extractTarget(ctx.term().termTarget()), Conjunction.AND, currentTermValues!!)
+      currentTerm =
+        Term(
+          currentTermValues!!,
+          extractTarget(ctx.term().termTarget()), Conjunction.AND, ctx.term().NEGATE() != null
+        )
       terms.add(currentTerm!!)
     }
 
@@ -130,14 +138,24 @@ class SearchParser {
     override fun enterAndTerm(ctx: AndTermContext) {
       super.enterAndTerm(ctx)
       currentTermValues = mutableListOf()
-      currentTerm = Term(extractTarget(ctx.term().termTarget()), Conjunction.AND, currentTermValues!!)
+      currentTerm = Term(
+        currentTermValues!!,
+        extractTarget(ctx.term().termTarget()),
+        Conjunction.AND,
+        ctx.term().NEGATE() != null
+      )
       terms.add(currentTerm!!)
     }
 
     override fun enterOrTerm(ctx: OrTermContext) {
       super.enterOrTerm(ctx)
       currentTermValues = mutableListOf()
-      currentTerm = Term(extractTarget(ctx.term().termTarget()), Conjunction.OR, currentTermValues!!)
+      currentTerm = Term(
+        currentTermValues!!,
+        extractTarget(ctx.term().termTarget()),
+        Conjunction.OR,
+        ctx.term().NEGATE() != null
+      )
       terms.add(currentTerm!!)
     }
 

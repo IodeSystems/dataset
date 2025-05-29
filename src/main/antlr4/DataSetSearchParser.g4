@@ -6,7 +6,7 @@ search: (simpleTerm (andTerm|orTerm)*)? WS* TERM_OR? WS* EOF;
 simpleTerm: WS* term WS*;
 andTerm: WS+ term;
 orTerm: WS* TERM_OR WS* term;
-term: (termTarget TARGET_SEPARATOR WS*)? termValueGroup;
+term: (termTarget TARGET_SEPARATOR WS*)? NEGATE? WS* termValueGroup;
 termTarget:  ANY | STRING;
 termValueGroup
 : TERM_GROUP_START WS* (simpleValue WS* (andValue|orValue)* WS*)? TERM_GROUP_END
