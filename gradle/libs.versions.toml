@@ -20,7 +20,7 @@ junit-junit = "4.13.2"
 
 gradle-nexus-publish = "1.5.0"
 antlr4 = "4.13.2"
-jooq = "3.20.2"
+jooq = "3.20.5"
 slf4j = "2.0.17"
 
 [libraries]
