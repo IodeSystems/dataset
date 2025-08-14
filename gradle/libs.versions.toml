@@ -6,21 +6,20 @@ org-jetbrains-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kot
 
 org-jetbrains-dokka = { id = "org.jetbrains.dokka", version = "2.0.0" }
 
-gradle-nexus-publish = { id = "io.github.gradle-nexus.publish-plugin", version = "2.0.0" }
-
 org-jetbrains-dokka-javadoc = { id = "org.jetbrains.dokka-javadoc", version = "2.0.0" }
 
 io-github-gradle-nexus-publish-plugin = { id = "io.github.gradle-nexus.publish-plugin", version = "2.0.0" }
 
 [versions]
 
-kotlin = "2.1.20"
+kotlin = "2.2.10"
+
 
 junit-junit = "4.13.2"
 
 gradle-nexus-publish = "1.5.0"
 antlr4 = "4.13.2"
-jooq = "3.20.2"
+jooq = "3.20.6"
 slf4j = "2.0.17"
 
 [libraries]

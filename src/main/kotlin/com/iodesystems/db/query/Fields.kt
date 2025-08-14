@@ -14,10 +14,10 @@ typealias ConfiguredField<T> = Pair<Field<T>, FieldConfiguration.Builder<T>.(fie
 class Fields<T>(
   private val mappedType: Class<T>,
   var customMapper: ((Record) -> T)? = null,
-  private val fields: MutableList<Field<*>> = mutableListOf(),
+  val fields: MutableList<Field<*>> = mutableListOf(),
   private val searches: MutableList<Search> = mutableListOf(),
   init: (Fields<T>.(Fields<T>) -> Unit),
-) : List<Field<*>> by fields {
+) {
 
   private val configuredFields = mutableMapOf<String, ConfiguredField<*>>()
 

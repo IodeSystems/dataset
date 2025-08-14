@@ -1,13 +1,14 @@
 package com.iodesystems.db
 
+import com.iodesystems.db.TestUtils.setup
 import com.iodesystems.db.http.DataSet
-import com.iodesystems.db.query.TypedQuery
 import com.iodesystems.db.search.SearchParser
 import com.iodesystems.db.search.model.Conjunction
 import com.iodesystems.db.search.model.Term
-import junit.framework.TestCase.assertEquals
+import junit.framework.TestCase
 import org.h2.jdbcx.JdbcConnectionPool
-import org.jooq.*
+import org.jooq.ExecuteListener
+import org.jooq.SQLDialect
 import org.jooq.impl.DSL
 import org.jooq.impl.DefaultConfiguration
 import org.jooq.impl.DefaultDSLContext
@@ -15,7 +16,6 @@ import org.junit.Assert
 import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.OffsetDateTime
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.expect
@@ -26,13 +26,13 @@ class TypedQueryTest {
   fun testGroupNegation() {
     val searchParser = SearchParser()
     val result = searchParser.parse("! ( a , b )")
-    assertEquals(1, result.terms.size)
+    TestCase.assertEquals(1, result.terms.size)
     // Ensure negated
-    assertEquals(true, result.terms[0].negated)
+    TestCase.assertEquals(true, result.terms[0].negated)
   }
 
   @Test
-  fun testLastNegation(){
+  fun testLastNegation() {
     val (db, query, queries) = setup { db ->
       val table = DSL.table(DSL.name("tbl1"))
       val field = DSL.field(DSL.name(table.name, "field1"), String::class.java)
@@ -63,11 +63,11 @@ class TypedQueryTest {
         search = "A !B"
       )
     ).let { result ->
-      assertEquals(
+      TestCase.assertEquals(
         "A !B",
         result.searchRendered
       )
-      assertEquals(
+      TestCase.assertEquals(
         """
         select *
         from "tbl1"
@@ -119,11 +119,11 @@ class TypedQueryTest {
         search = """!(a,b c)"""
       )
     ).let { result ->
-      assertEquals(
+      TestCase.assertEquals(
         """!(a,b c)""",
         result.searchRendered
       )
-      assertEquals(
+      TestCase.assertEquals(
         """
         select *
         from "tbl1"
@@ -170,16 +170,16 @@ class TypedQueryTest {
   fun testEmptyNegation() {
     val searchParser = SearchParser()
     searchParser.parse("""!""").apply {
-      assertEquals("\\!", search)
+      TestCase.assertEquals("\\!", search)
     }
     searchParser.parse("""! """).apply {
-      assertEquals("\\!", search)
+      TestCase.assertEquals("\\!", search)
     }
     searchParser.parse(""" ! """).apply {
-      assertEquals("\\!", search)
+      TestCase.assertEquals("\\!", search)
     }
     searchParser.parse(""" ! !! ! !!""").apply {
-      assertEquals("! !\\! ! !\\!", search)
+      TestCase.assertEquals("! !\\! ! !\\!", search)
     }
   }
 
@@ -210,7 +210,11 @@ class TypedQueryTest {
     Assert.assertEquals(listOf(Term.simple("A"), Term.simple("B")), searchParser.parse("A B").terms)
     Assert.assertEquals(listOf(Term.simple("A"), Term.simple("B")), searchParser.parse("A B").terms)
     Assert.assertEquals(
-      listOf(Term.simple("A"), Term.simple("B"), Term.simple("C", Conjunction.OR)).toString(),
+      listOf(
+        Term.simple("A"),
+        Term.simple("B"),
+        Term.simple("C", Conjunction.OR)
+      ).toString(),
       searchParser.parse("A B , C").terms.toString()
     )
     Assert.assertEquals(
@@ -226,18 +230,18 @@ class TypedQueryTest {
   @Test
   fun testBadSearch() {
     val result = SearchParser().parse(":")
-    assertEquals(1, result.terms.size)
-    assertEquals(":", result.terms[0].values[0].value)
+    TestCase.assertEquals(1, result.terms.size)
+    TestCase.assertEquals(":", result.terms[0].values[0].value)
   }
 
   @Test
   fun testEscapeRescape() {
     val result = SearchParser().parse("Sean O'Conner")
-    assertEquals("Sean", result.terms[0].values[0].value)
-    assertEquals("O'Conner", result.terms[1].values[0].value)
+    TestCase.assertEquals("Sean", result.terms[0].values[0].value)
+    TestCase.assertEquals("O'Conner", result.terms[1].values[0].value)
     val result2 = SearchParser().parse("Sean O\\'Conner")
-    assertEquals("Sean", result2.terms[0].values[0].value)
-    assertEquals("O'Conner", result2.terms[1].values[0].value)
+    TestCase.assertEquals("Sean", result2.terms[0].values[0].value)
+    TestCase.assertEquals("O'Conner", result2.terms[1].values[0].value)
   }
 
   @Test
@@ -245,42 +249,42 @@ class TypedQueryTest {
 
     SearchParser().parse("A a:!(!B,C)").let { result ->
       // Assert search parsed properly
-      assertEquals("A a:!(!B,C)", result.search)
+      TestCase.assertEquals("A a:!(!B,C)", result.search)
 
-      assertEquals(true, result.terms[1].negated)
-      assertEquals(true, result.terms[1].values[0].negated)
-      assertEquals(false, result.terms[1].values[1].negated)
+      TestCase.assertEquals(true, result.terms[1].negated)
+      TestCase.assertEquals(true, result.terms[1].values[0].negated)
+      TestCase.assertEquals(false, result.terms[1].values[1].negated)
     }
 
     SearchParser().parse("A !B").let { result ->
-      assertEquals("A", result.terms[0].values[0].value)
-      assertEquals("B", result.terms[1].values[0].value)
-      assertEquals(false, result.terms[0].values[0].negated)
+      TestCase.assertEquals("A", result.terms[0].values[0].value)
+      TestCase.assertEquals("B", result.terms[1].values[0].value)
+      TestCase.assertEquals(false, result.terms[0].values[0].negated)
       // The parent term takes the negation
-      assertEquals(true, result.terms[1].negated)
-      assertEquals(false, result.terms[1].values[0].negated)
+      TestCase.assertEquals(true, result.terms[1].negated)
+      TestCase.assertEquals(false, result.terms[1].values[0].negated)
     }
   }
 
   @Test
   fun testNegationWithEscaping() {
     SearchParser().parse("""A:(!!a, \!b c!, !d\\!)""").apply {
-      assertEquals(1, terms.size)
+      TestCase.assertEquals(1, terms.size)
       terms[0].apply {
-        assertEquals(4, values.size)
-        assertEquals("A", target)
+        TestCase.assertEquals(4, values.size)
+        TestCase.assertEquals("A", target)
 
-        assertEquals("!a", values[0].value)
-        assertEquals(true, values[0].negated)
+        TestCase.assertEquals("!a", values[0].value)
+        TestCase.assertEquals(true, values[0].negated)
 
-        assertEquals("!b", values[1].value)
-        assertEquals(false, values[1].negated)
+        TestCase.assertEquals("!b", values[1].value)
+        TestCase.assertEquals(false, values[1].negated)
 
-        assertEquals("c!", values[2].value)
-        assertEquals(false, values[2].negated)
+        TestCase.assertEquals("c!", values[2].value)
+        TestCase.assertEquals(false, values[2].negated)
 
-        assertEquals("d\\!", values[3].value)
-        assertEquals(true, values[3].negated)
+        TestCase.assertEquals("d\\!", values[3].value)
+        TestCase.assertEquals(true, values[3].negated)
       }
     }
   }
@@ -305,13 +309,13 @@ class TypedQueryTest {
     DataSet.Request(search = "A !B", showCounts = true).let { request ->
       request.toResponse(setup.db, setup.query)
         .let {
-          assertEquals(1L, it.count?.inQuery)
-          assertEquals(1, it.data.size)
-          assertEquals("A", it.data[0].get("CONTENT"))
+          TestCase.assertEquals(1L, it.count?.inQuery)
+          TestCase.assertEquals(1, it.data.size)
+          TestCase.assertEquals("A", it.data[0].get("CONTENT"))
         }
     }
 
-    assertEquals(
+    TestCase.assertEquals(
       2L,
       DataSet.Response.fromRequest(
         setup.db, setup.query,
@@ -321,88 +325,10 @@ class TypedQueryTest {
 
     DataSet.Request(search = "!z", showCounts = true).let { req ->
       req.toResponse(setup.db, setup.query).let {
-        assertEquals(3L, it.count?.inQuery)
-        assertEquals(3, it.data.size)
+        TestCase.assertEquals(3L, it.count?.inQuery)
+        TestCase.assertEquals(3, it.data.size)
       }
 
-    }
-  }
-
-  data class Setup<R : Record, M>(
-    val db: DefaultDSLContext,
-    val query: TypedQuery<Select<R>, R, M>,
-    val queries: MutableList<String>
-  )
-
-  fun <T : Record, M> setup(setup: (DSLContext) -> TypedQuery<Select<T>, T, M>): Setup<T, M> {
-    val queries = mutableListOf<String>()
-    val config = DefaultConfiguration().apply {
-      set(JdbcConnectionPool.create("jdbc:h2:mem:", "sa", "sa"))
-      set(SQLDialect.H2)
-      set(ExecuteListener.onExecuteEnd {
-        queries.add(it.query().toString())
-      })
-    }
-    val db = DefaultDSLContext(config)
-    return Setup(db, setup(db), queries)
-  }
-
-  fun setup(): Setup<Record, Record> {
-    return setup { db ->
-      val EMAIL = DSL.table("EMAIL")
-      DataSet.build {
-        val EMAIL_ID = field(DSL.field("EMAIL_ID", Int::class.java))
-        val CONTENT = field(DSL.field("CONTENT", String::class.java)) { f ->
-          search { s ->
-            f.containsIgnoreCase(s)
-          }
-        }
-        val FROM = field(DSL.field("FROM_EMAIL", String::class.java)) { f ->
-          search { s ->
-            f.eq(s)
-          }
-        }
-        val ATTACHMENT = field(DSL.field("ATTACHMENT", String::class.java)) { f ->
-          search { s ->
-            if (s.lowercase() == "true") {
-              f.isNull
-            } else {
-              null
-            }
-          }
-        }
-        val CREATED_AT = field(DSL.field("CREATED_AT", OffsetDateTime::class.java))
-
-        search("is_x", open = true) { s ->
-          if (s == "x") DSL.trueCondition()
-          else null
-        }
-        search("daysAgo") { s ->
-          if (s.startsWith("<")) {
-            val ltDaysAgo = s.drop(1).toLongOrNull()
-            if (ltDaysAgo == null) null
-            else CREATED_AT.lessOrEqual(OffsetDateTime.now().minusDays(ltDaysAgo))
-          } else if (s.startsWith(">")) {
-            val gtDaysAgo = s.drop(1).toLongOrNull()
-            if (gtDaysAgo == null) null
-            else CREATED_AT.greaterOrEqual(OffsetDateTime.now().minusDays(gtDaysAgo))
-          } else {
-            val daysAgo = s.toLongOrNull()
-            if (daysAgo == null) null
-            else CREATED_AT.greaterOrEqual(OffsetDateTime.now().minusDays(daysAgo))
-          }
-        }
-
-        db.createTable(EMAIL)
-          .column(EMAIL_ID)
-          .column(CONTENT)
-          .column(FROM)
-          .column(ATTACHMENT)
-          .column(CREATED_AT)
-          .execute()
-      }.toTypedQuery { sql ->
-        sql.from(EMAIL)
-      }
     }
   }
 
@@ -430,7 +356,7 @@ class TypedQueryTest {
         search = "x"
       )
     )
-    assertEquals(
+    TestCase.assertEquals(
       """
         select "tbl1"."field1"
         from "tbl1"
@@ -471,7 +397,7 @@ class TypedQueryTest {
         search = "x"
       )
     )
-    assertEquals(
+    TestCase.assertEquals(
       """
         select *
         from "tbl1"
@@ -494,7 +420,7 @@ class TypedQueryTest {
     val queries = setup.queries
 
     DataSet.Response.fromRequest(db, query, DataSet.Request(search = "x"))
-    assertEquals(
+    TestCase.assertEquals(
       """
       select
         EMAIL_ID,
@@ -528,7 +454,7 @@ class TypedQueryTest {
       search = "from_email:who,content:why"
     ).let { req ->
       req.toResponse(db, query).let { rsp ->
-        assertEquals(
+        TestCase.assertEquals(
           """
           select
             EMAIL_ID,
@@ -565,7 +491,7 @@ class TypedQueryTest {
         search = "from_email:who("
       )
     )
-    assertEquals(
+    TestCase.assertEquals(
       """
       select
         EMAIL_ID,
@@ -584,11 +510,11 @@ class TypedQueryTest {
         search = """from_email:((, (this is parser torture""\")"""
       )
     )
-    assertEquals(
+    TestCase.assertEquals(
       """from_email:(\(, \(this is parser torture\"\"\")""",
       result.searchRendered
     )
-    assertEquals(
+    TestCase.assertEquals(
       """
       select
         EMAIL_ID,
@@ -683,15 +609,15 @@ class TypedQueryTest {
     val rsp = DataSet.Response.fromRequest(db, query, req)
     val counts = rsp.count
     assertNotNull(counts)
-    assertEquals(0, counts.inQuery)
-    assertEquals(3, counts.inPartition)
+    TestCase.assertEquals(0, counts.inQuery)
+    TestCase.assertEquals(3, counts.inPartition)
     val columns = rsp.columns
     assertNotNull(columns)
-    assertEquals(columns.size, 4)
-    assertEquals("ID", columns[0].name)
-    assertEquals("NAME", columns[1].name)
-    assertEquals("CREATED_AT", columns[2].name)
-    assertEquals("AUTO_DETECT", columns[3].name)
+    TestCase.assertEquals(columns.size, 4)
+    TestCase.assertEquals("ID", columns[0].name)
+    TestCase.assertEquals("NAME", columns[1].name)
+    TestCase.assertEquals("CREATED_AT", columns[2].name)
+    TestCase.assertEquals("AUTO_DETECT", columns[3].name)
 
     val rsp2 = DataSet.Response.fromRequest(
       db, query, DataSet.Request(
@@ -700,33 +626,33 @@ class TypedQueryTest {
     )
     assertNull(rsp2.columns)
     assertNull(rsp2.count)
-    assertEquals(rsp2.data.size, 1)
+    TestCase.assertEquals(rsp2.data.size, 1)
 
     // Test searching fields
-    assertEquals(0, data.search("asdf").count())
-    assertEquals(4, data.search("E").count())
-    assertEquals(2, data.search("OO").count())
+    TestCase.assertEquals(0, data.search("asdf").count())
+    TestCase.assertEquals(4, data.search("E").count())
+    TestCase.assertEquals(2, data.search("OO").count())
     data.search("DERPY,HERPY").count().let {
-      assertEquals(3, it)
+      TestCase.assertEquals(3, it)
     }
 
-    assertEquals(3, data.search("DERPY , HERPY").count())
-    assertEquals(3, data.search(" DERPY , HERPY ").count())
-    assertEquals(1, data.search("DERPY DOO").count())
-    assertEquals(2, data.search("1").count())
+    TestCase.assertEquals(3, data.search("DERPY , HERPY").count())
+    TestCase.assertEquals(3, data.search(" DERPY , HERPY ").count())
+    TestCase.assertEquals(1, data.search("DERPY DOO").count())
+    TestCase.assertEquals(2, data.search("1").count())
 
     // Test targeted search
-    assertEquals(0, data.search("abc").count())
-    assertEquals(0, data.search("testSearch:1").count())
-    assertEquals(4, data.search("testSearch:abc").count())
+    TestCase.assertEquals(0, data.search("abc").count())
+    TestCase.assertEquals(0, data.search("testSearch:1").count())
+    TestCase.assertEquals(4, data.search("testSearch:abc").count())
 
     // Test targeted search on fields
-    assertEquals(1, data.search("id:1").count())
-    assertEquals(3, data.search("id:(1,2,3)").count())
-    assertEquals(0, data.search("id:(1 3)").count())
-    assertEquals(2, data.search("today").count())
-    assertEquals(2, data.search("createdAt:today").count())
-    assertEquals(1, data.search("createdAt:today ID:1").count())
-    assertEquals(3, data.search("createdAt:today, ID:3").count())
+    TestCase.assertEquals(1, data.search("id:1").count())
+    TestCase.assertEquals(3, data.search("id:(1,2,3)").count())
+    TestCase.assertEquals(0, data.search("id:(1 3)").count())
+    TestCase.assertEquals(2, data.search("today").count())
+    TestCase.assertEquals(2, data.search("createdAt:today").count())
+    TestCase.assertEquals(1, data.search("createdAt:today ID:1").count())
+    TestCase.assertEquals(3, data.search("createdAt:today, ID:3").count())
   }
 }

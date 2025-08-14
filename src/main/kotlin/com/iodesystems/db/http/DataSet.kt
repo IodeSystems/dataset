@@ -1,5 +1,6 @@
 package com.iodesystems.db.http
 
+import com.iodesystems.db.http.DataSet.Order.Direction
 import com.iodesystems.db.query.Fields
 import com.iodesystems.db.query.TypedQuery
 import org.jooq.*
@@ -38,7 +39,7 @@ class DataSet {
       table: Table<R>,
       init: (TypedQuery.Builder<Select<R>, R, R>.() -> Unit)? = null
     ): TypedQuery<Select<R>, R, R> {
-      return TypedQuery.forTable(DSL.selectFrom(table), { it }, init)
+      return TypedQuery.forTable(DSL.selectFrom(table), { it: R -> it }, init)
     }
 
     fun <R : Record, T> forTable(
@@ -53,7 +54,7 @@ class DataSet {
       table: Select<R>,
       init: (TypedQuery.Builder<Select<R>, R, R>.() -> Unit)? = null
     ): TypedQuery<Select<R>, R, R> {
-      return TypedQuery.forTable(table, { it }, init)
+      return TypedQuery.forTable(table, { it: R -> it }, init)
     }
 
 
@@ -149,7 +150,7 @@ class DataSet {
                 for (ordering in ordering) {
                   dataSet.order(
                     ordering.field,
-                    if (Order.Direction.ASC == ordering.order) SortOrder.ASC else SortOrder.DESC
+                    if (Direction.ASC == ordering.order) SortOrder.ASC else SortOrder.DESC
                   )
                 }
                 dataSet
@@ -227,7 +228,7 @@ class DataSet {
           for (ordering in request.ordering) {
             dataSet = dataSet.order(
               ordering.field,
-              if (Order.Direction.ASC == ordering.order) SortOrder.ASC else SortOrder.DESC
+              if (Direction.ASC == ordering.order) SortOrder.ASC else SortOrder.DESC
             )
           }
         }
@@ -250,8 +251,8 @@ class DataSet {
               orderable = field.orderable,
               sortDirection = when (order) {
                 null -> null
-                SortOrder.ASC -> Order.Direction.ASC
-                else -> Order.Direction.DESC
+                SortOrder.ASC -> Direction.ASC
+                else -> Direction.DESC
               },
               primaryKey = field.primaryKey,
             )
@@ -276,7 +277,7 @@ class DataSet {
       val title: String,
       val searchable: Boolean,
       val orderable: Boolean,
-      val sortDirection: Order.Direction?,
+      val sortDirection: Direction?,
       val primaryKey: Boolean,
       val type: String?,
     ) {
@@ -293,5 +294,42 @@ class DataSet {
     enum class Direction {
       ASC, DESC
     }
+  }
+}
+
+// Data classes for field configuration
+data class FieldConfig<F>(
+  val field: Field<F>,
+  val isPrimaryKey: Boolean = false,
+  val isOrderable: Boolean = false,
+  val orderDirection: Direction? = null,
+  val searchFunction: ((Field<F>, String) -> Condition)? = null,
+  val globalSearch: Boolean = true
+)
+
+// Field configuration builder
+class FieldConfigBuilder<F>(private val field: Field<F>) {
+  private var isPrimaryKey = false
+  private var isOrderable = false
+  private var orderDirection: Direction? = null
+  private var searchFunction: ((Field<F>, String) -> Condition)? = null
+  private var globalSearch = true
+
+  fun primaryKey() {
+    isPrimaryKey = true
+  }
+
+  fun orderable(direction: Direction = Direction.ASC) {
+    isOrderable = true
+    orderDirection = direction
+  }
+
+  fun search(global: Boolean = true, fn: (Field<F>, String) -> Condition) {
+    globalSearch = global
+    searchFunction = fn
+  }
+
+  internal fun build(): FieldConfig<F> {
+    return FieldConfig(field, isPrimaryKey, isOrderable, orderDirection, searchFunction, globalSearch)
   }
 }
