@@ -193,6 +193,19 @@ signing {
   sign(publishing.publications)
 }
 
+tasks.register("printVersion") {
+  doLast {
+    println(version)
+  }
+}
+tasks.register("versionSet"){
+  doLast {
+    val newVersion = generateVersion(properties["updateMode"] as String)
+    writeVersion(newVersion)
+  }
+}
+
+
 tasks.register("releaseStripSnapshotCommitAndTag") {
   dependsOn(tasks.test)
   group = "release"
