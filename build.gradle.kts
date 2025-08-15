@@ -70,10 +70,12 @@ tasks {
       )
     }
   }
-  compileKotlin {
-    dependsOn(parser)
+  dokkaGeneratePublicationJavadoc {
+    dependsOn(parser, lexer)
   }
-
+  compileKotlin {
+    dependsOn(parser, lexer)
+  }
 }
 
 sourceSets {
