@@ -10,6 +10,7 @@ import org.jooq.impl.DSL
 import org.junit.Test
 import kotlin.random.Random
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 class DataSetBuilderTest {
 
@@ -137,6 +138,25 @@ class DataSetBuilderTest {
   }
 
   @Test
+  fun testCovariance() {
+    val setup: TestUtils.Setup<Record, Record, Meta> = subject { db ->
+      DataSetBuilder.buildRecords {
+        db.select(
+          field(Meta.USER_ID) {
+            primaryKey()
+            search { f, s -> f.eq(s.toLongOrNull()) }
+          },
+          field(Meta.FIRST_NAME) {
+            orderable()
+            search { f, s -> f.containsIgnoreCase(s) }
+          }
+        )
+      }
+    }
+    assertNotNull(setup)
+  }
+
+  @Test
   fun testDataSetBuilderWithJoins() {
     val typedQuery = subject { db ->
       val contact = Meta.CONTACT
@@ -190,7 +210,8 @@ class DataSetBuilderTest {
     typedQuery.query.search("userId:2").let {
       it.data(typedQuery.db).result()
       typedQuery.queries.last().let { query ->
-        assertEquals("""
+        assertEquals(
+          """
           select
             USER_ID,
             FIRST_NAME,
@@ -228,7 +249,8 @@ class DataSetBuilderTest {
             ) || '%') escape '!'
           )
           order by FIRST_NAME asc
-        """.trimIndent(),query)
+        """.trimIndent(), query
+        )
       }
     }
   }
