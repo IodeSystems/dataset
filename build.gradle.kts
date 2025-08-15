@@ -4,7 +4,7 @@ import org.jetbrains.kotlin.konan.file.File
 import java.time.Duration
 
 group = "com.iodesystems.dataset"
-version = "7.1.2"
+version = "7.1.3-SNAPSHOT"
 description =
   "dataset is a simple query language parser that converts user queries to SQL conditions (using Antlr4 and JOOQ) with an aim for least surprise."
 
@@ -167,8 +167,8 @@ nexusPublishing {
   }
   repositories {
     sonatype {
-      nexusUrl.set(uri("s://central.sonatype.com/api/v1/publisher/upload"))
-//      snapshotRepositoryUrl.set(uri("https://s01.oss.sonatype.org/content/repositories/snapshots/"))
+      nexusUrl.set(uri("https://ossrh-staging-api.central.sonatype.com/service/local/"))
+      snapshotRepositoryUrl.set(uri("https://central.sonatype.com/repository/maven-snapshots/"))
     }
   }
 }
