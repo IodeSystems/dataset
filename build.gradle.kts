@@ -172,6 +172,10 @@ signing {
   sign(publishing.publications)
 }
 
+tasks.named("publishMavenJavaPublicationToSonatypeRepository").configure {
+  notCompatibleWithConfigurationCache("This task has dynamic inputs that cannot be cached.")
+}
+
 tasks.register("versionGet") {
   group = "release"
   val version = version
