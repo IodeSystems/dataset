@@ -1,6 +1,7 @@
+import com.iodesystems.build.Antlr.antlr
+import com.iodesystems.build.Bash.bash
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import org.jetbrains.kotlin.konan.file.File
 import java.time.Duration
 
 group = "com.iodesystems.dataset"
@@ -32,61 +33,38 @@ kotlin {
 }
 
 tasks {
-  fun Project.antlr(
-    grammarFile: String,
-    packageName: String = "$group.$name",
-    outputDir: String = "$rootDir/src/gen/java",
-    inputDir: String = "$rootDir/src/main/antlr4"
-  ) {
-    val pkgPath = packageName.replace(".", "/")
-
-    val compileOnlyDepFiles = configurations.compileClasspath.get().files
-    File(outputDir).mkdirs()
-    val output = "$outputDir/$pkgPath".quoteDir()
-    val target = "$inputDir/$grammarFile".quoteDir()
-
-    val cmd = """
-      java \
-        -classpath ${compileOnlyDepFiles.joinToString(":") { it.absolutePath }} \
-        org.antlr.v4.Tool \
-        -o $output \
-        -package $packageName \
-        -lib ${outputDir.quoteDir()} \
-        $target
-    """.trimIndent()
-
-    val bash = cmd.bash()
-
-
-    if (bash.exitCode != 0) {
-      throw RuntimeException(
-        """
-        | antlr exec ~= ${cmd}
-        | failed with code=${bash.exitCode} because:
-        |${bash.output}
-        """.trimMargin()
-      )
-    }
-  }
-
+  val antlrOutDir = "$rootDir/src/main/java-generated"
+  val antlrInputDir = "$rootDir/src/main/antlr4"
   val lexer = register("generateLexer") {
     group = "antlr"
+    val grammarFile = "DataSetSearchLexer.g4"
+    val compileOnlyDepFiles = configurations.getByName("compileClasspath").asPath
+    inputs.dir(antlrInputDir)
+    outputs.dir(antlrOutDir)
     doLast {
       antlr(
-        grammarFile = "DataSetSearchLexer.g4",
+        grammarFile = grammarFile,
         packageName = "com.iodesystems.db.query",
-        outputDir = "$rootDir/src/main/java-generated"
+        compileOnlyDepFiles = compileOnlyDepFiles,
+        outputDir = antlrOutDir,
+        inputDir = antlrInputDir
       )
     }
   }
   val parser = register("generateParser") {
     group = "antlr"
+    val grammarFile = "DataSetSearchParser.g4"
     dependsOn(lexer)
+    val compileOnlyDepFiles = configurations.getByName("compileClasspath").asPath
+    inputs.dir(antlrInputDir)
+    outputs.dir(antlrOutDir)
     doLast {
       antlr(
-        grammarFile = "DataSetSearchParser.g4",
+        grammarFile = grammarFile,
         packageName = "com.iodesystems.db.query",
-        outputDir = "$rootDir/src/main/java-generated"
+        compileOnlyDepFiles = compileOnlyDepFiles,
+        outputDir = antlrOutDir,
+        inputDir = antlrInputDir
       )
     }
   }
@@ -198,7 +176,7 @@ tasks.register("printVersion") {
     println(version)
   }
 }
-tasks.register("versionSet"){
+tasks.register("versionSet") {
   doLast {
     val newVersion = generateVersion(properties["updateMode"] as String)
     writeVersion(newVersion)
@@ -288,57 +266,4 @@ fun writeVersion(newVersion: String, oldVersion: String = version.toString()) {
   buildFile.writeText(newContent)
 }
 
-private fun String.quoteDir(): String {
-  // Escape & quote
-  val escaped = replace("\\", "\\\\").replace("\"", "\\\"")
-  return "\"$escaped\""
-}
 
-data class BashResult(
-  val exitCode: Int,
-  val output: String
-)
-
-private fun String.bash(): BashResult {
-  val process = ProcessBuilder(
-    "/usr/bin/env", "bash", "-c", this
-  )
-    .also { it.environment()["PATH"] = "/usr/local/bin:/usr/bin:/bin" }
-    .start()
-  val output = mutableListOf<String>()
-  val er = Thread {
-    process.errorStream.reader().useLines { lines ->
-      lines.forEach {
-        println(it)
-        output += it
-      }
-    }
-  }
-  val out = Thread {
-    process.inputStream.reader().useLines { lines ->
-      lines.forEach {
-        output += it
-      }
-    }
-  }
-  er.start()
-  out.start()
-
-  val exitCode = process.waitFor().also { code ->
-    er.join()
-    out.join()
-    if (code != 0) {
-      throw GradleException(
-        """
-        Failed ($code) to execute command: $this
-        Output:
-        ${output.joinToString("\n")}
-      """.trimIndent()
-      )
-    }
-  }
-  return BashResult(
-    exitCode = exitCode,
-    output = output.joinToString("\n")
-  )
-}
