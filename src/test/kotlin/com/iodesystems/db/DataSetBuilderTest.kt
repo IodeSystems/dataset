@@ -165,7 +165,7 @@ class DataSetBuilderTest {
         db.select(
           field(Meta.USER_ID) {
             primaryKey()
-            search { f, s -> f.eq(s.toLongOrNull()) }
+            search { f, s -> s.toLongOrNull()?.let { f.eq(it) } }
           },
           field(Meta.FIRST_NAME) {
             orderable()
@@ -193,8 +193,7 @@ class DataSetBuilderTest {
       assertEquals(
         """
         (
-          USER_ID = null
-          or contains(
+          contains(
             lower(FIRST_NAME),
             lower('test')
           )
@@ -203,7 +202,7 @@ class DataSetBuilderTest {
             lower('test')
           )
         )
-      """.trimIndent(), it
+        """.trimIndent(), it
       )
     }
     // Test query execution

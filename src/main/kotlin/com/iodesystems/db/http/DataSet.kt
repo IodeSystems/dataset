@@ -303,7 +303,7 @@ data class FieldConfig<F>(
   val isPrimaryKey: Boolean = false,
   val isOrderable: Boolean = false,
   val orderDirection: Direction? = null,
-  val searchFunction: ((Field<F>, String) -> Condition)? = null,
+  val searchFunction: ((Field<F>, String) -> Condition?)? = null,
   val globalSearch: Boolean = true
 )
 
@@ -312,7 +312,7 @@ class FieldConfigBuilder<F>(private val field: Field<F>) {
   private var isPrimaryKey = false
   private var isOrderable = false
   private var orderDirection: Direction? = null
-  private var searchFunction: ((Field<F>, String) -> Condition)? = null
+  private var searchFunction: ((Field<F>, String) -> Condition?)? = null
   private var globalSearch = true
 
   fun primaryKey() {
@@ -324,7 +324,7 @@ class FieldConfigBuilder<F>(private val field: Field<F>) {
     orderDirection = direction
   }
 
-  fun search(global: Boolean = true, fn: (Field<F>, String) -> Condition) {
+  fun search(global: Boolean = true, fn: (Field<F>, String) -> Condition?) {
     globalSearch = global
     searchFunction = fn
   }
