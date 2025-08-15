@@ -76,6 +76,9 @@ tasks {
   compileKotlin {
     dependsOn(parser, lexer)
   }
+  kotlinSourcesJar {
+    dependsOn(parser, lexer)
+  }
 }
 
 sourceSets {
