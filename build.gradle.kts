@@ -17,6 +17,7 @@ repositories {
 }
 
 plugins {
+  id("nl.littlerobots.version-catalog-update") version "1.0.0"
   kotlin("jvm")
   `java-library`
   `maven-publish`
@@ -162,7 +163,6 @@ dependencies {
   implementation(libs.kotlin.reflect)
   implementation(libs.antlr4.runtime)
   implementation(libs.jooq)
-  testImplementation(Kotlin.test.junit)
   testImplementation(libs.junit)
   testImplementation(libs.h2database)
 }
@@ -170,10 +170,6 @@ dependencies {
 signing {
   useGpgCmd()
   sign(publishing.publications)
-}
-
-tasks.named("publishMavenJavaPublicationToSonatypeRepository").configure {
-  notCompatibleWithConfigurationCache("This task has dynamic inputs that cannot be cached.")
 }
 
 tasks.register("versionGet") {

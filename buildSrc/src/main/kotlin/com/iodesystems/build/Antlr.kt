@@ -12,8 +12,6 @@ object Antlr {
     outputDir: String,
     compileOnlyDepFiles: String,
   ) {
-
-    val compileOnlyDepFiles = compileOnlyDepFiles
     val pkgPath = packageName.replace(".", "/")
     File(outputDir).mkdirs()
     val output = "$outputDir/$pkgPath".quoteDir()

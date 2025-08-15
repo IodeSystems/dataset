@@ -6,6 +6,7 @@ import com.iodesystems.db.search.SearchParser
 import com.iodesystems.db.search.model.Conjunction
 import com.iodesystems.db.search.model.Term
 import junit.framework.TestCase
+import junit.framework.TestCase.*
 import org.h2.jdbcx.JdbcConnectionPool
 import org.jooq.ExecuteListener
 import org.jooq.SQLDialect
@@ -16,9 +17,6 @@ import org.junit.Assert
 import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalDateTime
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
-import kotlin.test.expect
 
 class TypedQueryTest {
 
@@ -195,12 +193,8 @@ class TypedQueryTest {
   fun testSearchParserEscapeStrings() {
     val searchParser = SearchParser()
     val result = searchParser.parse("""a\ b\ c d""")
-    expect("a b c") {
-      result.terms.first().values.first().value
-    }
-    expect("d") {
-      result.terms.last().values.first().value
-    }
+    assertEquals("a b c", result.terms.first().values.first().value)
+    assertEquals("d", result.terms.last().values.first().value)
   }
 
   @Test
@@ -309,13 +303,13 @@ class TypedQueryTest {
     DataSet.Request(search = "A !B", showCounts = true).let { request ->
       request.toResponse(setup.db, setup.query)
         .let {
-          TestCase.assertEquals(1L, it.count?.inQuery)
+          assertEquals(1L, it.count?.inQuery)
           TestCase.assertEquals(1, it.data.size)
-          TestCase.assertEquals("A", it.data[0].get("CONTENT"))
+          assertEquals("A", it.data[0].get("CONTENT"))
         }
     }
 
-    TestCase.assertEquals(
+    assertEquals(
       2L,
       DataSet.Response.fromRequest(
         setup.db, setup.query,
@@ -325,7 +319,7 @@ class TypedQueryTest {
 
     DataSet.Request(search = "!z", showCounts = true).let { req ->
       req.toResponse(setup.db, setup.query).let {
-        TestCase.assertEquals(3L, it.count?.inQuery)
+        assertEquals(3L, it.count?.inQuery)
         TestCase.assertEquals(3, it.data.size)
       }
 
@@ -453,7 +447,7 @@ class TypedQueryTest {
     DataSet.Request(
       search = "from_email:who,content:why"
     ).let { req ->
-      req.toResponse(db, query).let { rsp ->
+      req.toResponse(db, query).let {
         TestCase.assertEquals(
           """
           select
@@ -608,11 +602,11 @@ class TypedQueryTest {
     )
     val rsp = DataSet.Response.fromRequest(db, query, req)
     val counts = rsp.count
-    assertNotNull(counts)
+    assertNotNull(counts!!)
     TestCase.assertEquals(0, counts.inQuery)
     TestCase.assertEquals(3, counts.inPartition)
     val columns = rsp.columns
-    assertNotNull(columns)
+    assertNotNull(columns!!)
     TestCase.assertEquals(columns.size, 4)
     TestCase.assertEquals("ID", columns[0].name)
     TestCase.assertEquals("NAME", columns[1].name)

@@ -3,14 +3,14 @@ package com.iodesystems.db
 import com.iodesystems.db.TestUtils.setup
 import com.iodesystems.db.http.DataSetBuilder
 import com.iodesystems.db.query.TypedQuery
+import junit.framework.TestCase.assertEquals
+import junit.framework.TestCase.assertNotNull
 import org.jooq.DSLContext
 import org.jooq.Record
 import org.jooq.Select
 import org.jooq.impl.DSL
 import org.junit.Test
 import kotlin.random.Random
-import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 
 class DataSetBuilderTest {
 
