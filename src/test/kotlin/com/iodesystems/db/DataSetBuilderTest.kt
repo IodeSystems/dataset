@@ -338,6 +338,9 @@ class DataSetBuilderTest {
   fun testDataSetBuilderWithMapping() {
     val typedQuery = subject { db ->
       DataSetBuilder.build {
+        search("test") { s ->
+          Meta.FIRST_NAME.eq(s)
+        }
         db.select(
           field(Meta.USER_ID) {
             primaryKey()
@@ -411,6 +414,27 @@ class DataSetBuilderTest {
         assert(query.contains("PHONE"))
         assert(query.contains("IS_ACTIVE"))
         assert(query.contains("TEST_USER"))
+      }
+    }
+    typedQuery.query.search("test:true").let {
+      it.data(typedQuery.db).result()
+      typedQuery.queries.last().let { query ->
+        assertEquals(
+          """
+          select
+            USER_ID,
+            FIRST_NAME,
+            LAST_NAME,
+            EMAIL,
+            PHONE,
+            IS_ACTIVE
+          from TEST_USER
+          where FIRST_NAME = 'true'
+          order by
+            FIRST_NAME asc,
+            LAST_NAME asc
+        """.trimIndent(), query
+        )
       }
     }
   }
