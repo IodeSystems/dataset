@@ -14,11 +14,13 @@ import com.iodesystems.db.util.StringUtil.titleCase
 import org.jooq.*
 import org.jooq.impl.DSL
 import org.slf4j.LoggerFactory
-import java.util.stream.Stream
+import kotlin.sequences.Sequence
+import kotlin.streams.asSequence
 
 data class TypedQuery<T : Select<R>, R : Record, M>(
   val table: T,
-  val mapper: (R) -> M,
+  val mapper: (List<R>) -> List<M>,
+  val mapperBatchSize: Int = 1000,
   val conditions: List<Condition> = emptyList(),
   val offset: Int = 0,
   val limit: Int = -1,
@@ -52,7 +54,9 @@ data class TypedQuery<T : Select<R>, R : Record, M>(
     val search: String, val condition: Condition?
   )
 
-  data class DataSet<T : Select<R>, R : Record, M>(val db: DSLContext, val query: TypedQuery<T, R, M>) {
+  data class DataSet<T : Select<R>, R : Record, M>(
+    val db: DSLContext, val query: TypedQuery<T, R, M>
+  ) {
 
     fun field(name: String): FieldConfiguration<*>? {
       return query.fieldsByNameLower[name.lowercase()]
@@ -119,11 +123,18 @@ data class TypedQuery<T : Select<R>, R : Record, M>(
 
     fun fetch(): List<M> {
       val result: Result<R> = result()
-      return result.map(query.mapper)
+      return result.asSequence()
+        .chunked(query.mapperBatchSize, query.mapper)
+        .flatten()
+        .toList()
     }
 
-    fun stream(): Stream<M> {
-      return query().stream().map(query.mapper)
+    fun stream(): Sequence<M> {
+      return query()
+        .stream()
+        .asSequence()
+        .chunked(query.mapperBatchSize, query.mapper)
+        .flatten()
     }
 
     fun count(): Long {
@@ -286,7 +297,11 @@ data class TypedQuery<T : Select<R>, R : Record, M>(
   }
 
   fun <U> map(converter: (M) -> U): TypedQuery<T, R, U> {
-    val newMapper: (R) -> U = { record -> converter(mapper(record)) }
+    return mapBatch { it.map(converter) }
+  }
+
+  fun <U> mapBatch(converter: (List<M>) -> List<U>): TypedQuery<T, R, U> {
+    val newMapper: (List<R>) -> List<U> = { record -> converter(mapper(record)) }
     return TypedQuery(
       table = table,
       mapper = newMapper,
@@ -298,7 +313,6 @@ data class TypedQuery<T : Select<R>, R : Record, M>(
       searches = searches,
     )
   }
-
 
   data class FieldConfiguration<T>(
     val field: Field<T>,
@@ -474,7 +488,7 @@ data class TypedQuery<T : Select<R>, R : Record, M>(
 
     fun <R : Record, M> forTable(
       table: Select<R>,
-      mapper: (R) -> M,
+      mapper: (List<R>) -> List<M>,
       init: (Builder<Select<R>, R, M>.() -> Unit)? = null
     ): TypedQuery<Select<R>, R, M> {
       val builder = Builder(TypedQuery(table = table, mapper = mapper))
@@ -486,7 +500,7 @@ data class TypedQuery<T : Select<R>, R : Record, M>(
       table: Select<R>,
       init: (Builder<Select<R>, R, MutableMap<String, Any>>.() -> Unit)? = null
     ): TypedQuery<Select<R>, R, MutableMap<String, Any>> {
-      return forTable(table, { r -> r.intoMap() }, init)
+      return forTable(table, { r -> r.map { it.intoMap() } }, init)
     }
 
     fun <R : Record> forTableRecords(

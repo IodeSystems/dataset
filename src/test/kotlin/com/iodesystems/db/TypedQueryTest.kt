@@ -566,7 +566,7 @@ class TypedQueryTest {
       .set(TABLE_CREATED_AT, LocalDateTime.now())
       .execute()
 
-    val query = DataSet.forTable(DSL.table("(SELECT * FROM TEST_TABLE)"), { r -> r.intoMap() }) {
+    val query = DataSet.forTable(DSL.table("(SELECT * FROM TEST_TABLE)"), { it.map { it.intoMap() } }) {
       field(TABLE_ID) { field ->
         orderable()
         search {

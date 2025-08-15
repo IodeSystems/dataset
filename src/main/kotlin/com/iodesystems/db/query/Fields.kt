@@ -78,10 +78,11 @@ class Fields<T>(
   fun <R : Record, TABLE : Select<R>> toTypedQuery(
     block: (sql: SelectFromStep<Record>) -> Select<R>
   ): TypedQuery<Select<R>, R, T> {
-    @Suppress("UNCHECKED_CAST")
+
     return TypedQuery.forTable<R, T>(
       block(DSL.select(fields)),
-      mapper as (Record) -> T
+      @Suppress("UNCHECKED_CAST")
+      { it.map(mapper as (R) -> T) }
     ) {
       val config = this
       configuredFields.values.forEach { (field, init) -> config.field(field) { init(field) } }

@@ -39,12 +39,12 @@ class DataSet {
       table: Table<R>,
       init: (TypedQuery.Builder<Select<R>, R, R>.() -> Unit)? = null
     ): TypedQuery<Select<R>, R, R> {
-      return TypedQuery.forTable(DSL.selectFrom(table), { it: R -> it }, init)
+      return TypedQuery.forTable(DSL.selectFrom(table), { it }, init)
     }
 
     fun <R : Record, T> forTable(
       table: Table<R>,
-      mapper: (Record) -> T,
+      mapper: (List<Record>) -> List<T>,
       init: (TypedQuery.Builder<Select<R>, R, T>.() -> Unit)? = null
     ): TypedQuery<Select<R>, R, T> {
       return TypedQuery.forTable(DSL.selectFrom(table), mapper, init)
@@ -54,7 +54,7 @@ class DataSet {
       table: Select<R>,
       init: (TypedQuery.Builder<Select<R>, R, R>.() -> Unit)? = null
     ): TypedQuery<Select<R>, R, R> {
-      return TypedQuery.forTable(table, { it: R -> it }, init)
+      return TypedQuery.forTable(table, { it }, init)
     }
 
 
