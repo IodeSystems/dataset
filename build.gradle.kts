@@ -1,11 +1,12 @@
 import com.iodesystems.build.Antlr.antlr
 import com.iodesystems.build.Bash.bash
+import com.iodesystems.build.Release
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.time.Duration
 
 group = "com.iodesystems.dataset"
-version = "7.1.4-SNAPSHOT"
+version = "7.3.1-SNAPSHOT"
 description =
   "dataset is a simple query language parser that converts user queries to SQL conditions (using Antlr4 and JOOQ) with an aim for least surprise."
 
@@ -171,15 +172,21 @@ signing {
   sign(publishing.publications)
 }
 
-tasks.register("printVersion") {
+tasks.register("versionGet") {
+  group = "release"
+  val version = version
   doLast {
     println(version)
   }
 }
 tasks.register("versionSet") {
+  group = "release"
+  val overrideVersion = properties["overrideVersion"]
+  val updateMode = properties["updateMode"]!!.toString()
+  val version = properties["version"]!!.toString()
   doLast {
-    val newVersion = generateVersion(properties["updateMode"] as String)
-    writeVersion(newVersion)
+    val newVersion = Release.generateVersion(version, updateMode, overrideVersion?.toString())
+    Release.writeVersion(newVersion, version)
   }
 }
 
@@ -187,14 +194,15 @@ tasks.register("versionSet") {
 tasks.register("releaseStripSnapshotCommitAndTag") {
   dependsOn(tasks.test)
   group = "release"
+  val version = properties["version"]!!.toString()
   doLast {
     val status = "git status --porcelain".bash().output.trim()
     if (status.isNotEmpty()) {
       throw GradleException("There are changes in the working directory:\n$status")
     }
-    val oldVersion = version.toString()
+    val oldVersion = version
     val newVersion = oldVersion.removeSuffix("-SNAPSHOT")
-    writeVersion(newVersion)
+    Release.writeVersion(newVersion, oldVersion)
     // Validate build
     "git add build.gradle.kts".bash()
     "git commit -m 'Release $newVersion'".bash()
@@ -203,21 +211,25 @@ tasks.register("releaseStripSnapshotCommitAndTag") {
 }
 tasks.register("releaseRevert") {
   group = "release"
+  val version = properties["version"]!!.toString()
   doLast {
-    val oldVersion = version.toString()
+    val oldVersion = version
     val newVersion = "$oldVersion-SNAPSHOT"
-    writeVersion(newVersion, oldVersion)
+    Release.writeVersion(newVersion, oldVersion)
     "git reset --hard HEAD~1".bash()
     "git tag -d v$oldVersion".bash()
     println("Reverted to $newVersion")
   }
 }
 tasks.register("releasePublish") {
+  group = "release"
   dependsOn(tasks.clean, tasks.build, tasks.publish, tasks.closeAndReleaseStagingRepositories)
+  val overrideVersion = properties["overrideVersion"]?.toString()
+  val version = properties["version"]!!.toString()
   doLast {
-    val oldVersion = version.toString()
-    val newVersion = generateVersion("dev")
-    writeVersion(newVersion, oldVersion)
+    val oldVersion = version
+    val newVersion = Release.generateVersion(version, "dev", overrideVersion)
+    Release.writeVersion(newVersion, oldVersion)
     "git add build.gradle.kts".bash()
     "git commit -m 'Prepare next development iteration: $newVersion'".bash()
     "git push".bash()
@@ -225,45 +237,17 @@ tasks.register("releasePublish") {
   }
 }
 tasks.register("releasePrepareNextDevelopmentIteration") {
+  group = "release"
+  val overrideVersion = properties["overrideVersion"]?.toString()
+  val version = properties["version"]!!.toString()
   doLast {
-    val oldVersion = version.toString()
-    val newVersion = generateVersion("dev")
-    writeVersion(newVersion, oldVersion)
+    val oldVersion = version
+    val newVersion = Release.generateVersion(version, "dev", overrideVersion)
+    Release.writeVersion(newVersion, oldVersion)
     "git add build.gradle.kts".bash()
     "git commit -m 'Prepare next development iteration: $newVersion'".bash()
     "git push".bash()
   }
-}
-
-fun generateVersion(updateMode: String): String {
-  properties["overrideVersion"].let {
-    if (it != null) {
-      return it as String
-    }
-  }
-
-  val version = properties["version"] as String
-  val nonSnapshotVersion = version.removeSuffix("-SNAPSHOT")
-
-  val (oldMajor, oldMinor, oldPatch) = nonSnapshotVersion.split(".").map(String::toInt)
-  var (newMajor, newMinor, newPatch) = arrayOf(oldMajor, oldMinor, 0)
-
-  when (updateMode) {
-    "major" -> newMajor = (oldMajor + 1).also { newMinor = 0 }
-    "minor" -> newMinor = oldMinor + 1
-    "dev" -> newPatch = oldPatch + 1
-    else -> newPatch = oldPatch + 1
-  }
-  if (updateMode == "dev" || nonSnapshotVersion != version) {
-    return "$newMajor.$newMinor.$newPatch-SNAPSHOT"
-  }
-  return "$newMajor.$newMinor.$newPatch"
-}
-
-fun writeVersion(newVersion: String, oldVersion: String = version.toString()) {
-  val oldContent = buildFile.readText()
-  val newContent = oldContent.replace("""= "$oldVersion"""", """= "$newVersion"""")
-  buildFile.writeText(newContent)
 }
 
 
