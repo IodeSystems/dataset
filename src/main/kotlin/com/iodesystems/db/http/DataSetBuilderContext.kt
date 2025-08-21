@@ -16,7 +16,7 @@ class DataSetBuilderContext {
     searches.add(Search(name, open, search))
   }
 
-  fun <F> field(jooqField: Field<F>, config: FieldConfigBuilder<F>.() -> Unit): Field<F> {
+  fun <F> field(jooqField: Field<F>, config: (FieldConfigBuilder<F>.() -> Unit) = {}): Field<F> {
     val configBuilder = FieldConfigBuilder(jooqField)
     config(configBuilder)
     fieldConfigs.add(configBuilder.build())
