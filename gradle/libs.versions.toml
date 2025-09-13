@@ -6,7 +6,7 @@ io-github-gradle-nexus-publish-plugin = "io.github.gradle-nexus.publish-plugin:2
 antlr4 = "4.13.2"
 jooq = "3.20.6"
 junit-junit = "4.13.2"
-kotlin = "2.2.10"
+kotlin = "2.2.20"
 org-jetbrains-dokka = "2.0.0"
 slf4j = "2.0.17"
 
