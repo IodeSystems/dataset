@@ -1,9 +1,7 @@
 package com.iodesystems.db.query
 
 import com.iodesystems.db.http.DataSet.Order.Direction
-import com.iodesystems.db.search.SearchParser
-import com.iodesystems.db.search.errors.InvalidSearchStringException
-import com.iodesystems.db.search.errors.SneakyInvalidSearchStringException
+import com.iodesystems.db.search.SearchConditionFactory
 import com.iodesystems.db.search.model.Conjunction
 import com.iodesystems.db.util.StringUtil.camelToTitleCase
 import com.iodesystems.db.util.StringUtil.isCamelCase
@@ -28,11 +26,47 @@ data class TypedQuery<T : Select<R>, R : Record, M>(
   val fields: Map<String, FieldConfiguration<*>> = emptyMap(),
   val searches: Map<String, (query: String) -> Condition?> = emptyMap(),
   val openSearches: List<String> = emptyList(),
-  val lastSearchCorrected: String? = null
-) {
+  val lastSearchCorrected: String? = null,
+  val searchConditionFactory: SearchConditionFactory = SearchConditionFactory()
+) : SearchConditionFactory.SearchConditionContext {
 
-  val fieldsByNameLower by lazy { fields.mapKeys { it.key.lowercase() } }
-  val searchesByNameLower by lazy { searches.mapKeys { it.key.lowercase() } }
+  private val fieldsByNameLower by lazy {
+    fields.mapKeys {
+      it.key.lowercase().replace("_", "")
+    }
+  }
+  private val searchesByNameLower by lazy {
+    searches.mapKeys {
+      it.key.lowercase().replace("_", "")
+    }
+  }
+  private val openSearchProviders = fields.values.asSequence()
+    .filter { it.open && it.search != null }
+    .map { fc ->
+      val fn = fc.search!!
+      SearchConditionFactory.SearchProvider { q -> fn(q) }
+    }.toList() + openSearches.mapNotNull { name ->
+    val fn = searches[name]
+    fn?.let { f -> SearchConditionFactory.SearchProvider { q -> f(q) } }
+  }
+
+  override fun getSearchProvider(name: String): SearchConditionFactory.SearchProvider? {
+    val normalizedName = name.lowercase().replace("_", "")
+    // First check named/targeted searches
+    searchesByNameLower[normalizedName]?.let { fn ->
+      return SearchConditionFactory.SearchProvider { q -> fn(q) }
+    }
+    // Then check fields by name
+    val field = fieldsByNameLower[normalizedName]
+    val fieldSearch = field?.search
+    return fieldSearch?.let { f ->
+      SearchConditionFactory.SearchProvider { q -> f(q) }
+    }
+  }
+
+  override fun getOpenSearchProviders(): Collection<SearchConditionFactory.SearchProvider> {
+    return openSearchProviders
+  }
 
   fun <F> fieldConfiguration(field: Field<F>, alias: String? = null): FieldConfiguration<F>? {
     val name = alias ?: fieldName(field.name).name.lowercase()
@@ -182,81 +216,7 @@ data class TypedQuery<T : Select<R>, R : Record, M>(
   }
 
   fun renderSearch(search: String): SearchRendered {
-    val searchConditions = mutableListOf<Condition>()
-    val searchParser = SearchParser()
-    try {
-      var termsCondition: Condition? = null
-      val searchParsed = searchParser.parse(search)
-      for (term in searchParsed.terms) {
-        val conditionProvider: ((s: String) -> Condition?)? = if (term.target != null) {
-          // We have a target!
-          val target = term.target.lowercase()
-          // Check if we have a targeted search
-          val targetedSearch = searchesByNameLower[target]
-          if (targetedSearch != null) {
-            { s -> targetedSearch(s) }
-          } else {
-            val targetField = fieldsByNameLower[target]
-            if (targetField == null) {
-              log.warn("Requested field $target not found in configured fields, searching open fields instead")
-              null
-            } else if (targetField.search == null) {
-              log.warn("Configured field $target has no search, but was requested, searching open fields instead")
-              null
-            } else {
-              targetField.search
-            }
-          }
-        } else {
-          null
-        }
-        var termCondition: Condition? = null
-        for (value in term.values) {
-          if (conditionProvider != null) {
-            val targetedSearchCondition = conditionProvider(value.value)
-            termCondition = if (termCondition == null) {
-              targetedSearchCondition
-            } else if (value.conjunction == Conjunction.AND) {
-              DSL.and(termCondition, targetedSearchCondition)
-            } else {
-              DSL.or(termCondition, targetedSearchCondition)
-            }
-            // Stop processing this term value
-            continue
-          }
-          // No targeted search, so we'll search all open fields
-          var fieldsCondition: Condition? = null
-          for (field in fields.values) {
-            // Do we have a search for this field?
-            val fieldSearch = field.search ?: continue
-            // Is this field open for searching?
-            if (!field.open) continue
-            val fieldSearchCondition = fieldSearch(value.value)
-            fieldsCondition = fieldsCondition?.or(fieldSearchCondition) ?: fieldSearchCondition
-          }
-
-          // Also perform open searches
-          for (openSearch in openSearches) {
-            val searchCondition = searches[openSearch]!!(value.value)
-            fieldsCondition = fieldsCondition?.or(searchCondition) ?: searchCondition
-          }
-          // Negate the condition if necessary
-          if (value.negated) fieldsCondition = fieldsCondition?.not()
-          termCondition = mergeCondition(termCondition, fieldsCondition, value.conjunction)
-        }
-        if (term.negated) termCondition = termCondition?.not()
-        termsCondition = mergeCondition(termsCondition, termCondition, term.conjunction)
-      }
-      if (termsCondition != null) {
-        searchConditions.add(termsCondition)
-      }
-      return SearchRendered(searchParsed.search, DSL.or(searchConditions))
-    } catch (e: InvalidSearchStringException) {
-      throw SneakyInvalidSearchStringException(
-        "Invalid search while building conditions:" + e.message, e
-      )
-    }
-
+    return searchConditionFactory.search(search, this)
   }
 
   private fun mergeCondition(
@@ -311,6 +271,9 @@ data class TypedQuery<T : Select<R>, R : Record, M>(
       order = order,
       fields = fields,
       searches = searches,
+      openSearches = openSearches,
+      lastSearchCorrected = lastSearchCorrected,
+      searchConditionFactory = searchConditionFactory,
     )
   }
 

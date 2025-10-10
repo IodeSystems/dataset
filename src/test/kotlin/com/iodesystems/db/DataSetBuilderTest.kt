@@ -114,15 +114,9 @@ class DataSetBuilderTest {
     }
     typedQuery.query.renderSearch("userId:100").condition.toString().let {
       assertEquals(
-        it, """
-        (
+        """
           USER_ID = 100
-          or contains(
-            lower(FIRST_NAME),
-            lower('100')
-          )
-        )
-      """.trimIndent()
+        """.trimIndent(), it
       )
     }
     // Test query execution
@@ -192,15 +186,9 @@ class DataSetBuilderTest {
     typedQuery.query.renderSearch("firstName:test").condition.toString().let {
       assertEquals(
         """
-        (
-          contains(
-            lower(FIRST_NAME),
-            lower('test')
-          )
-          or contains(
-            lower(EMAIL),
-            lower('test')
-          )
+        contains(
+          lower(FIRST_NAME),
+          lower('test')
         )
         """.trimIndent(), it
       )
@@ -218,35 +206,7 @@ class DataSetBuilderTest {
           from TEST_USER
             left outer join CONTACT
               on CONTACT_ID = USER_ID
-          where (
-            USER_ID = 2
-            or lower(FIRST_NAME) like ('%' || replace(
-              replace(
-                replace(
-                  lower('2'),
-                  '!',
-                  '!!'
-                ),
-                '%',
-                '!%'
-              ),
-              '_',
-              '!_'
-            ) || '%') escape '!'
-            or lower(EMAIL) like ('%' || replace(
-              replace(
-                replace(
-                  lower('2'),
-                  '!',
-                  '!!'
-                ),
-                '%',
-                '!%'
-              ),
-              '_',
-              '!_'
-            ) || '%') escape '!'
-          )
+          where USER_ID = 2
           order by FIRST_NAME asc
         """.trimIndent(), query
         )
@@ -288,13 +248,8 @@ class DataSetBuilderTest {
     typedQuery.query.search("userId:5").let {
       assertEquals(
         """
-        (
           USER_ID = 5
-          or contains(
-            lower(FIRST_NAME),
-            lower('5')
-          )
-        )""".trimIndent(),
+        """.trimIndent(),
         DSL.and(it.conditions).toString()
       )
     }
@@ -309,22 +264,7 @@ class DataSetBuilderTest {
               IS_ACTIVE
             from TEST_USER
             where (
-              (
-                USER_ID = 5
-                or lower(FIRST_NAME) like ('%' || replace(
-                  replace(
-                    replace(
-                      lower('5'),
-                      '!',
-                      '!!'
-                    ),
-                    '%',
-                    '!%'
-                  ),
-                  '_',
-                  '!_'
-                ) || '%') escape '!'
-              )
+              USER_ID = 5
               and IS_ACTIVE = true
             )
             order by FIRST_NAME asc
@@ -380,24 +320,9 @@ class DataSetBuilderTest {
     typedQuery.query.renderSearch("firstName:john").condition.toString().let {
       assertEquals(
         """
-        (
-          USER_ID = null
-          or contains(
-            lower(FIRST_NAME),
-            lower('john')
-          )
-          or contains(
-            lower(LAST_NAME),
-            lower('john')
-          )
-          or contains(
-            lower(EMAIL),
-            lower('john')
-          )
-          or contains(
-            lower(PHONE),
-            lower('john')
-          )
+        contains(
+          lower(FIRST_NAME),
+          lower('john')
         )
       """.trimIndent(), it
       )
