@@ -4,9 +4,9 @@ io-github-gradle-nexus-publish-plugin = "io.github.gradle-nexus.publish-plugin:2
 
 [versions]
 antlr4 = "4.13.2"
-jooq = "3.20.6"
+jooq = "3.20.8"
 junit-junit = "4.13.2"
-kotlin = "2.2.10"
+kotlin = "2.2.20"
 org-jetbrains-dokka = "2.0.0"
 slf4j = "2.0.17"
 
@@ -20,7 +20,7 @@ dokka-core = { module = "org.jetbrains.dokka:dokka-core", version.ref = "org-jet
 gradle-dokka-plugin = { module = "org.jetbrains.dokka:dokka-gradle-plugin", version.ref = "org-jetbrains-dokka" }
 gradle-kotlin-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 gradle-nexus-publish-plugin = "io.github.gradle-nexus.publish-plugin:io.github.gradle-nexus.publish-plugin.gradle.plugin:2.0.0"
-h2database = "com.h2database:h2:2.3.232"
+h2database = "com.h2database:h2:2.4.240"
 javadoc-plugin = { module = "org.jetbrains.dokka:javadoc-plugin", version.ref = "org-jetbrains-dokka" }
 jooq = { module = "org.jooq:jooq", version.ref = "jooq" }
 junit = { module = "junit:junit", version.ref = "junit-junit" }
