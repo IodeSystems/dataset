@@ -11,7 +11,6 @@ import com.iodesystems.db.util.StringUtil.snakeToTitleCase
 import com.iodesystems.db.util.StringUtil.titleCase
 import org.jooq.*
 import org.jooq.impl.DSL
-import org.slf4j.LoggerFactory
 import kotlin.sequences.Sequence
 import kotlin.streams.asSequence
 
@@ -286,7 +285,6 @@ data class TypedQuery<T : Select<R>, R : Record, M>(
     val direction: Direction? = null,
     val search: ((String) -> Condition?)? = null,
     val primaryKey: Boolean = false,
-    val type: String? = null,
     val open: Boolean = true,
     val orderNulls: Nulls? = null,
     val mapper: Mapper<T, Any>? = null,
@@ -305,7 +303,6 @@ data class TypedQuery<T : Select<R>, R : Record, M>(
       private var direction: Direction? = null,
       private var search: ((String) -> Condition?)? = null,
       var primaryKey: Boolean = false,
-      var type: String? = null,
       private var open: Boolean = true,
       private var orderNulls: Nulls? = null,
       private var mapper: Mapper<T, Any>? = null,
@@ -328,7 +325,6 @@ data class TypedQuery<T : Select<R>, R : Record, M>(
       }
 
       fun <B> map(type: Class<B>, fn: (T, record: Record) -> B) {
-        this.type = type.simpleName
         @Suppress("UNCHECKED_CAST")
         this.mapper = Mapper(type, fn) as Mapper<T, Any>
       }
@@ -341,7 +337,6 @@ data class TypedQuery<T : Select<R>, R : Record, M>(
           orderable = orderable,
           search = search,
           primaryKey = primaryKey,
-          type = type,
           open = open,
           direction = direction,
           orderNulls = orderNulls,
@@ -408,23 +403,11 @@ data class TypedQuery<T : Select<R>, R : Record, M>(
           val existing = query.fields.values.firstOrNull {
             it.field.name == field.name
           }
-          val fieldType = field.dataType.converter.toType().simpleName
           if (existing == null) {
             val unqualifiedName = DSL.name(field.name)
             val unqualifiedField = field.`as`(unqualifiedName)
             field(unqualifiedField) {
               external = true
-              type = fieldType
-            }
-          } else {
-            if (existing.type != fieldType) {
-              query = query.copy(
-                fields = query.fields + Pair(
-                  fieldName(existing.name).name, existing.copy(
-                    type = fieldType
-                  )
-                )
-              )
             }
           }
         }
@@ -432,7 +415,6 @@ data class TypedQuery<T : Select<R>, R : Record, M>(
   }
 
   companion object {
-    val log = LoggerFactory.getLogger(TypedQuery::class.java)
 
     data class FieldName(
       val title: String,

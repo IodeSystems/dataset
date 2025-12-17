@@ -246,7 +246,7 @@ class DataSet {
             Column(
               name = field.name,
               title = field.title,
-              type = field.type,
+              type = field.field.dataType.type.simpleName,
               searchable = field.search != null,
               orderable = field.orderable,
               sortDirection = when (order) {
