@@ -17,7 +17,7 @@ repositories {
 }
 
 plugins {
-  id("nl.littlerobots.version-catalog-update") version "1.0.0"
+  id("nl.littlerobots.version-catalog-update") version "1.0.1"
   kotlin("jvm")
   `java-library`
   `maven-publish`
