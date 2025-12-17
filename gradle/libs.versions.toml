@@ -7,7 +7,7 @@ antlr4 = "4.13.2"
 jooq = "3.20.8"
 junit-junit = "4.13.2"
 kotlin = "2.2.20"
-org-jetbrains-dokka = "2.0.0"
+org-jetbrains-dokka = "2.1.0"
 slf4j = "2.0.17"
 
 [libraries]
