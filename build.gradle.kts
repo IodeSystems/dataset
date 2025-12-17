@@ -130,11 +130,9 @@ private fun joinName(p: Project): String {
   return name
 }
 publishing {
-  if (project.name == "core") {
-    publications {
-      create<MavenPublication>("java") {
-        from(components["java"])
-      }
+  publications {
+    create<MavenPublication>("java") {
+      from(components["java"])
     }
   }
   afterEvaluate {
