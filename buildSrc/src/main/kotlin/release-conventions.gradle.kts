@@ -90,10 +90,3 @@ tasks.register("releasePrepareNextDevelopmentIteration") {
     "git push".bash()
   }
 }
-
-tasks.closeAndReleaseStagingRepositories {
-  notCompatibleWithConfigurationCache("Not compatible")
-}
-tasks.releaseStagingRepositories {
-  notCompatibleWithConfigurationCache("Not compatible")
-}
