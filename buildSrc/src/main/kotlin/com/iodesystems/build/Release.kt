@@ -31,15 +31,6 @@ object Release {
     val newContent = oldContent.replace("""= "$oldVersion"""", """= "$newVersion"""")
     buildFile.writeText(newContent)
 
-    // We need to update the samples as well
-    val sampleVersions = File("samples/spring/gradle/libs.versions.toml")
-    sampleVersions.useLines { lines ->
-      lines.map { line ->
-        if (!line.startsWith("gradle-typescript-generator")) line
-        else "gradle-typescript-generator = \"com.iodesystems.typescript-generator:com.iodesystems.typescript-generator.gradle.plugin:$newVersion\""
-      }.joinToString("\n")
-    }.let { newLines -> sampleVersions.writeText(newLines) }
-
     // We need to update the documentation:
     val readme = File("README.md")
     readme.writeText(readme.readText().replace(oldVersion, newVersion))
