@@ -35,29 +35,6 @@ class DataSet {
       )
     }
 
-    fun <R : Record> forTable(
-      table: Table<R>,
-      init: (TypedQuery.Builder<Select<R>, R, R>.() -> Unit)? = null
-    ): TypedQuery<Select<R>, R, R> {
-      return TypedQuery.forTable(DSL.selectFrom(table), { it }, init)
-    }
-
-    fun <R : Record, T> forTable(
-      table: Table<R>,
-      mapper: (List<Record>) -> List<T>,
-      init: (TypedQuery.Builder<Select<R>, R, T>.() -> Unit)? = null
-    ): TypedQuery<Select<R>, R, T> {
-      return TypedQuery.forTable(DSL.selectFrom(table), mapper, init)
-    }
-
-    fun <R : Record> forTable(
-      table: Select<R>,
-      init: (TypedQuery.Builder<Select<R>, R, R>.() -> Unit)? = null
-    ): TypedQuery<Select<R>, R, R> {
-      return TypedQuery.forTable(table, { it }, init)
-    }
-
-
     enum class RequestTransform {
       SEARCH, PARTITION, ORDERING, SELECTION
     }

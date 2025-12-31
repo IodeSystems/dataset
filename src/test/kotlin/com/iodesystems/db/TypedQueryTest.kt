@@ -2,6 +2,7 @@ package com.iodesystems.db
 
 import com.iodesystems.db.TestUtils.setup
 import com.iodesystems.db.http.DataSet
+import com.iodesystems.db.query.TypedQuery
 import com.iodesystems.db.search.SearchParser
 import com.iodesystems.db.search.model.Conjunction
 import com.iodesystems.db.search.model.Term
@@ -39,20 +40,19 @@ class TypedQueryTest {
         .column(field)
         .column(field2)
         .execute()
-      DataSet.forTable(
-        table
-      ) {
-        field(field) { f ->
-          search { s ->
-            f.eq(s)
+      TypedQuery {
+        db.select(
+          field(field) {
+            search { f, s ->
+              f.eq(s)
+            }
+          },
+          field(field2) {
+            search { f, s ->
+              f.eq(s)
+            }
           }
-        }
-        field(field2) { f ->
-          search { s ->
-            f.eq(s)
-          }
-        }
-        autoDetectFields(db)
+        ).from(table)
       }
     }
 
@@ -67,7 +67,7 @@ class TypedQueryTest {
       )
       TestCase.assertEquals(
         """
-        select *
+        select "tbl1"."field1", "tbl1"."field2"
         from "tbl1"
         where (
           (
@@ -96,20 +96,19 @@ class TypedQueryTest {
         .column(field)
         .column(field2)
         .execute()
-      DataSet.forTable(
-        table
-      ) {
-        field(field) { f ->
-          search { s ->
-            f.eq(s)
+      TypedQuery {
+        db.select(
+          field(field) {
+            search { f, s ->
+              f.eq(s)
+            }
+          },
+          field(field2) {
+            search { f, s ->
+              f.eq(s)
+            }
           }
-        }
-        field(field2) { f ->
-          search { s ->
-            f.eq(s)
-          }
-        }
-        autoDetectFields(db)
+        ).from(table)
       }
     }
     DataSet.Response.fromRequest(
@@ -123,7 +122,7 @@ class TypedQueryTest {
       )
       TestCase.assertEquals(
         """
-        select *
+        select "tbl1"."field1", "tbl1"."field2"
         from "tbl1"
         where not (
           (
@@ -370,20 +369,19 @@ class TypedQueryTest {
       val field2 = DSL.field(DSL.name(table2.name, "field2"), String::class.java)
       // Qualify it
       db.createTable(table2).column(field2).execute()
-      DataSet.forTable(
-        table.join(table2).on(field.eq(field2))
-      ) {
-        field(field) { f ->
-          search { s ->
-            f.eq(s)
+      TypedQuery {
+        db.select(
+          field(field) {
+            search { f, s ->
+              f.eq(s)
+            }
+          },
+          field(field2) {
+            search { f, s ->
+              f.eq(s)
+            }
           }
-        }
-        field(field2) { f ->
-          search { s ->
-            f.eq(s)
-          }
-        }
-        autoDetectFields(db)
+        ).from(table.join(table2).on(field.eq(field2)))
       }
     }
     DataSet.Response.fromRequest(
@@ -393,7 +391,7 @@ class TypedQueryTest {
     )
     TestCase.assertEquals(
       """
-        select *
+        select "tbl1"."field1", "tbl2"."field2"
         from "tbl1"
           join "tbl2"
             on "tbl1"."field1" = "tbl2"."field2"
@@ -566,35 +564,37 @@ class TypedQueryTest {
       .set(TABLE_CREATED_AT, LocalDateTime.now())
       .execute()
 
-    val query = DataSet.forTable(DSL.table("(SELECT * FROM TEST_TABLE)"), { it.map { it.intoMap() } }) {
-      field(TABLE_ID) { field ->
-        orderable()
-        search {
-          val num = it.toIntOrNull()
-          if (num == null) {
-            null
-          } else {
-            field.eq(num)
-          }
-        }
-      }
-      field(TABLE_NAME) { f ->
-        search { f.contains(it) }
-      }
-      field(TABLE_CREATED_AT) { f ->
-        search { s ->
-          if (s.lowercase() == "today") {
-            DSL.trunc(f).cast(LocalDate::class.java).eq(LocalDate.now())
-          } else {
-            null
-          }
-        }
-      }
-      search("testSearch") { s ->
+    val query = TypedQuery {
+      search("testSearch", open = false) { s ->
         DSL.value("abc").eq(s)
       }
-      autoDetectFields(db)
-    }
+      db.select(
+        field(TABLE_ID) {
+          orderable()
+          search { field, s ->
+            val num = s.toIntOrNull()
+            if (num == null) {
+              null
+            } else {
+              field.eq(num)
+            }
+          }
+        },
+        field(TABLE_NAME) {
+          search { f, s -> f.contains(s) }
+        },
+        field(TABLE_CREATED_AT) {
+          search { f, s ->
+            if (s.lowercase() == "today") {
+              DSL.trunc(f).cast(LocalDate::class.java).eq(LocalDate.now())
+            } else {
+              null
+            }
+          }
+        },
+        field(AUTODETECT) {}
+      ).from(DSL.table("(SELECT * FROM TEST_TABLE)"))
+    }.mapBatch { it.map { it.intoMap() } }
     val data = query.data(db)
 
     val req = DataSet.Request(

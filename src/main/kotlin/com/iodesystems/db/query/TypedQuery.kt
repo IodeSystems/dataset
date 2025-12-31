@@ -431,42 +431,200 @@ data class TypedQuery<T : Select<R>, R : Record, M>(
       }
     }
 
-    fun <R : Record, M> forTable(
-      table: Select<R>,
-      mapper: (List<R>) -> List<M>,
-      init: (Builder<Select<R>, R, M>.() -> Unit)? = null
-    ): TypedQuery<Select<R>, R, M> {
-      val builder = Builder(TypedQuery(table = table, mapper = mapper))
-      init?.let { builder.it() }
-      return builder.query
+    /**
+     * Creates a TypedQuery using a DSL-based builder pattern.
+     *
+     * This is the preferred way to construct TypedQuery instances. It provides
+     * a clean, declarative syntax for configuring fields inline with your SELECT statement.
+     *
+     * Example:
+     * ```kotlin
+     * val query = TypedQuery {
+     *   db.select(
+     *     field(USER_ID) {
+     *       primaryKey()
+     *       search { f, s -> f.eq(s.toLongOrNull()) }
+     *     },
+     *     field(EMAIL) {
+     *       orderable()
+     *       search { f, s -> f.containsIgnoreCase(s) }
+     *     }
+     *   ).from(USER)
+     * }
+     * ```
+     *
+     * @param block Builder function that receives a TypedQueryContext and returns a JOOQ Select query
+     * @return Configured TypedQuery instance ready for execution
+     */
+    operator fun <T : Record> invoke(
+      block: TypedQueryContext.() -> Select<T>
+    ): TypedQuery<Select<T>, T, T> {
+      val context = TypedQueryContext()
+      val query = block(context)
+      return context.buildTypedQuery(query)
     }
 
-    fun <R : Record> forTableMaps(
-      table: Select<R>,
-      init: (Builder<Select<R>, R, MutableMap<String, Any>>.() -> Unit)? = null
-    ): TypedQuery<Select<R>, R, MutableMap<String, Any>> {
-      return forTable(table, { r -> r.map { it.intoMap() } }, init)
-    }
-
-    fun <R : Record> forTableRecords(
-      table: Select<R>, init: (Builder<Select<R>, R, R>.() -> Unit)? = null
-    ): TypedQuery<Select<R>, R, R> {
-      return forTable(table, { r -> r }, init)
-    }
   }
 }
 
-private fun <K, V> Map<K, V>.partition(function: (Map.Entry<K, V>) -> Boolean): Pair<Map<K, V>, Map<K, V>> {
-  val first = mutableMapOf<K, V>()
-  val second = mutableMapOf<K, V>()
-  for (entry in entries) {
-    if (function(entry)) {
-      first[entry.key] = entry.value
-    } else {
-      second[entry.key] = entry.value
-    }
+/**
+ * Context for building TypedQuery instances using the DSL.
+ *
+ * Provides methods for configuring fields and searches in a fluent, declarative way.
+ */
+class TypedQueryContext {
+  private val fieldConfigs = mutableListOf<TypedQueryFieldConfig<*>>()
+  private val searches = mutableListOf<TypedQuerySearch>()
+
+  /**
+   * Register a named search that can be targeted in search queries.
+   *
+   * @param name The name to use when targeting this search (e.g., "status" allows "status:active")
+   * @param open If true, this search is included in global/open searches (default: true)
+   * @param search Function that converts a search string into a JOOQ Condition
+   */
+  fun search(name: String, open: Boolean = true, search: (query: String) -> Condition?) {
+    searches.add(TypedQuerySearch(name, open, search))
   }
-  return Pair(first, second)
+
+  /**
+   * Configure a field with search, ordering, and other options.
+   *
+   * Example:
+   * ```kotlin
+   * field(USER_ID) {
+   *   primaryKey()
+   *   search { f, s -> f.eq(s.toLongOrNull()) }
+   * }
+   * ```
+   *
+   * @param jooqField The JOOQ field to configure
+   * @param config Configuration block for field options
+   * @return The same JOOQ field (for use in SELECT clause)
+   */
+  fun <F> field(jooqField: Field<F>, config: (TypedQueryFieldConfigBuilder<F>.() -> Unit) = {}): Field<F> {
+    val configBuilder = TypedQueryFieldConfigBuilder(jooqField)
+    config(configBuilder)
+    fieldConfigs.add(configBuilder.build())
+    return jooqField
+  }
+
+  internal fun <T : Record> buildTypedQuery(query: Select<T>): TypedQuery<Select<T>, T, T> {
+    // Build field configurations map
+    val fields = mutableMapOf<String, TypedQuery.FieldConfiguration<*>>()
+    val defaultOrdering = mutableListOf<SortField<*>>()
+
+    fieldConfigs.forEach { config ->
+      @Suppress("UNCHECKED_CAST")
+      val fieldConfig = TypedQuery.FieldConfiguration(
+        field = config.field as Field<Any>,
+        name = config.field.name,
+        title = config.field.name,
+        external = true,
+        orderable = config.isOrderable,
+        direction = config.orderDirection,
+        search = config.searchFunction?.let { searchFn ->
+          { searchString: String ->
+            @Suppress("UNCHECKED_CAST")
+            (searchFn as (Field<Any>, String) -> Condition)(config.field as Field<Any>, searchString)
+          }
+        },
+        primaryKey = config.isPrimaryKey,
+        open = config.globalSearch
+      )
+      fields[config.field.name] = fieldConfig
+
+      // Apply default ordering for orderable fields
+      if (config.isOrderable) {
+        val sortOrder = when (config.orderDirection) {
+          Direction.DESC -> SortOrder.DESC
+          else -> SortOrder.ASC
+        }
+        defaultOrdering.add(config.field.sort(sortOrder))
+      }
+    }
+
+    // Build named searches map
+    val searchesMap = mutableMapOf<String, (query: String) -> Condition?>()
+    searches.forEach { search ->
+      searchesMap[search.name] = search.search
+    }
+
+    // Get list of open search field names
+    val openSearches = searches.filter { it.open }.map { it.name }
+
+    // Create TypedQuery directly
+    return TypedQuery(
+      table = query,
+      mapper = { it }, // Identity mapper for Record -> Record
+      fields = fields,
+      searches = searchesMap,
+      openSearches = openSearches,
+      order = defaultOrdering
+    )
+  }
 }
 
+/**
+ * Configuration data for a field in TypedQuery.
+ */
+data class TypedQueryFieldConfig<F>(
+  val field: Field<F>,
+  val isPrimaryKey: Boolean = false,
+  val isOrderable: Boolean = false,
+  val orderDirection: com.iodesystems.db.http.DataSet.Order.Direction? = null,
+  val searchFunction: ((Field<F>, String) -> Condition?)? = null,
+  val globalSearch: Boolean = true
+)
 
+/**
+ * Builder for configuring field options in TypedQuery.
+ */
+class TypedQueryFieldConfigBuilder<F>(private val field: Field<F>) {
+  private var isPrimaryKey = false
+  private var isOrderable = false
+  private var orderDirection: com.iodesystems.db.http.DataSet.Order.Direction? = null
+  private var searchFunction: ((Field<F>, String) -> Condition?)? = null
+  private var globalSearch = true
+
+  /**
+   * Mark this field as the primary key.
+   */
+  fun primaryKey() {
+    isPrimaryKey = true
+  }
+
+  /**
+   * Allow ordering by this field.
+   *
+   * @param direction Default sort direction (ASC or DESC)
+   */
+  fun orderable(direction: com.iodesystems.db.http.DataSet.Order.Direction = com.iodesystems.db.http.DataSet.Order.Direction.ASC) {
+    isOrderable = true
+    orderDirection = direction
+  }
+
+  /**
+   * Make this field searchable.
+   *
+   * @param global If true, this field is searched in global/open searches (default: true)
+   * @param fn Function that takes the field and search string and returns a Condition
+   */
+  fun search(global: Boolean = true, fn: (Field<F>, String) -> Condition?) {
+    globalSearch = global
+    searchFunction = fn
+  }
+
+  internal fun build(): TypedQueryFieldConfig<F> {
+    return TypedQueryFieldConfig(field, isPrimaryKey, isOrderable, orderDirection, searchFunction, globalSearch)
+  }
+}
+
+/**
+ * Configuration data for a named search in TypedQuery.
+ */
+data class TypedQuerySearch(
+  val name: String,
+  val open: Boolean,
+  val search: (query: String) -> Condition?
+)

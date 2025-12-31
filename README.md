@@ -56,8 +56,8 @@ WHERE
 
 And given the schema:
 ```kotlin
-val query = DataSet.forTable(EMAIL) {
-    search("daysAgo") { s, _ ->
+val query = TypedQuery {
+    search("daysAgo") { s ->
         if (s.startsWith("<")) {
             val ltDaysAgo = s.drop(1).toLongOrNull()
             if (ltDaysAgo == null) null
@@ -72,35 +72,35 @@ val query = DataSet.forTable(EMAIL) {
             else CREATED_AT.greaterOrEqual(OffsetDateTime.now().minusDays(daysAgo))
         }
     }
-    search("is_x", open = true) { s, _ ->
+    search("is_x", open = true) { s ->
         if (s == "x") DSL.trueCondition()
         else null
     }
-    field(ATTACHMENT) { f ->
-        search = { s ->
-            if (s.lowercase() == "true") {
-                f.isNull
-            } else {
-                null
+
+    db.select(
+        field(EMAIL_ID) {
+            primaryKey()
+        },
+        field(ATTACHMENT) {
+            search(global = false) { f, s ->
+                if (s.lowercase() == "true") f.isNull else null
             }
-        }
-    }
-    field(CONTENT) { f ->
-        search = { s ->
-            f.containsIgnoreCase(s)
-        }
-    }
-    field(FROM) { f ->
-        search = { s ->
-            f.containsIgnoreCase(s)
-        }
-    }
-    autoDetectFields(db)
+        },
+        field(CONTENT) {
+            orderable()
+            search { f, s -> f.containsIgnoreCase(s) }
+        },
+        field(FROM) {
+            orderable()
+            search { f, s -> f.containsIgnoreCase(s) }
+        },
+        CREATED_AT
+    ).from(EMAIL)
 }
 val req = DataSet.Request(
     showColumns = true, showCounts = true, search = "x", partition = ""
 )
-val rsp = DataSet.Response.fromRequest(db, query, req)
+val rsp = DataSet.query(db, query, req)
 ```
 
 User Query Errors

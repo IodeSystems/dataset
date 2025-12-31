@@ -1,5 +1,6 @@
 package com.iodesystems.db.query
 
+import com.iodesystems.db.http.DataSet.Order.Direction
 import com.iodesystems.db.query.TypedQuery.FieldConfiguration
 import com.iodesystems.db.util.StringUtil.isCamelCase
 import com.iodesystems.db.util.StringUtil.isSnakeCase
@@ -78,21 +79,48 @@ class Fields<T>(
   fun <R : Record, TABLE : Select<R>> toTypedQuery(
     block: (sql: SelectFromStep<Record>) -> Select<R>
   ): TypedQuery<Select<R>, R, T> {
+    val query = block(DSL.select(fields))
 
-    return TypedQuery.forTable<R, T>(
-      block(DSL.select(fields)),
+    // Build field configurations and default ordering
+    val fieldConfigs = mutableMapOf<String, TypedQuery.FieldConfiguration<*>>()
+    val defaultOrdering = mutableListOf<SortField<*>>()
+
+    configuredFields.values.forEach { (field, init) ->
+      val builder = TypedQuery.FieldConfiguration.Builder<Any?>(field as Field<Any?>)
       @Suppress("UNCHECKED_CAST")
-      { it.map(mapper as (R) -> T) }
-    ) {
-      val config = this
-      configuredFields.values.forEach { (field, init) -> config.field(field) { init(field) } }
-      searches.forEach { search ->
-        config.search(
-          search.name,
-          open = search.open
-        ) { query -> search.search(query) }
+      (init as (TypedQuery.FieldConfiguration.Builder<Any?>).(Field<Any?>) -> Unit)(builder, field as Field<Any?>)
+      val config = builder.build()
+      fieldConfigs[field.name] = config
+
+      // Apply default ordering for orderable fields
+      if (config.orderable) {
+        val sortOrder = when (config.direction) {
+          Direction.DESC -> SortOrder.DESC
+          else -> SortOrder.ASC
+        }
+        defaultOrdering.add(field.sort(sortOrder))
       }
     }
+
+    // Build search map and openSearches list
+    val searchMap = mutableMapOf<String, (String) -> Condition?>()
+    val openSearchList = mutableListOf<String>()
+    searches.forEach { search ->
+      searchMap[search.name] = search.search
+      if (search.open) {
+        openSearchList.add(search.name)
+      }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    return TypedQuery(
+      table = query,
+      mapper = { it.map(mapper as (R) -> T) },
+      fields = fieldConfigs,
+      searches = searchMap,
+      openSearches = openSearchList,
+      order = defaultOrdering
+    )
   }
 
   private val mapper by lazy {

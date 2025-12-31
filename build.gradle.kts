@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 group = "com.iodesystems.dataset"
-version = "8.0.9-SNAPSHOT"
+version = "9.0.0-SNAPSHOT"
 description =
   "dataset is a simple query language parser that converts user queries to SQL conditions (using Antlr4 and JOOQ) with an aim for least surprise."
 
