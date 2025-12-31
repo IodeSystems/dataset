@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs ls:*)",
+      "Bash(./gradlew build:*)",
+      "Bash(./gradlew test:*)",
+      "Bash(cat:*)",
+      "Bash(find:*)",
+      "Bash(./gradlew compileKotlin:*)",
+      "Bash(./gradlew clean test:*)",
+      "Bash(python3:*)",
+      "Bash(./gradlew cleanTest test:*)",
+      "Bash(git commit:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
