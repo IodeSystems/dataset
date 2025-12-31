@@ -1,8 +1,7 @@
 package com.iodesystems.db
 
 import com.iodesystems.db.TestUtils.setup
-import com.iodesystems.db.http.DataSet
-import com.iodesystems.db.query.TypedQuery
+import com.iodesystems.db.DataSet
 import com.iodesystems.db.search.SearchParser
 import com.iodesystems.db.search.model.Conjunction
 import com.iodesystems.db.search.model.Term
@@ -40,7 +39,7 @@ class TypedQueryTest {
         .column(field)
         .column(field2)
         .execute()
-      TypedQuery {
+      DataSet {
         db.select(
           field(field) {
             search { f, s ->
@@ -96,7 +95,7 @@ class TypedQueryTest {
         .column(field)
         .column(field2)
         .execute()
-      TypedQuery {
+      DataSet {
         db.select(
           field(field) {
             search { f, s ->
@@ -340,7 +339,7 @@ class TypedQueryTest {
           }
         }
       }
-      fields.toTypedQuery { sql ->
+      fields.toDataSet { sql ->
         sql.from(table)
       }
     }
@@ -369,7 +368,7 @@ class TypedQueryTest {
       val field2 = DSL.field(DSL.name(table2.name, "field2"), String::class.java)
       // Qualify it
       db.createTable(table2).column(field2).execute()
-      TypedQuery {
+      DataSet {
         db.select(
           field(field) {
             search { f, s ->
@@ -564,7 +563,7 @@ class TypedQueryTest {
       .set(TABLE_CREATED_AT, LocalDateTime.now())
       .execute()
 
-    val query = TypedQuery {
+    val query = DataSet {
       search("testSearch", open = false) { s ->
         DSL.value("abc").eq(s)
       }

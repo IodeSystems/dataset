@@ -1,7 +1,7 @@
 package com.iodesystems.db.query
 
-import com.iodesystems.db.http.DataSet.Order.Direction
-import com.iodesystems.db.query.TypedQuery.FieldConfiguration
+import com.iodesystems.db.DataSet
+import com.iodesystems.db.DataSet.Order.Direction
 import com.iodesystems.db.util.StringUtil.isCamelCase
 import com.iodesystems.db.util.StringUtil.isSnakeCase
 import com.iodesystems.db.util.StringUtil.snakeToCamelCase
@@ -10,7 +10,7 @@ import org.jooq.impl.DSL
 import org.jooq.impl.TableImpl
 import kotlin.reflect.full.isSubclassOf
 
-typealias ConfiguredField<T> = Pair<Field<T>, FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit>
+typealias ConfiguredField<T> = Pair<Field<T>, DataSet.FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit>
 
 class Fields<T>(
   private val mappedType: Class<T>,
@@ -47,13 +47,13 @@ class Fields<T>(
   }
 
   fun <T> field(
-    field: Field<T>, alias: String, init: (FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit) = {}
+    field: Field<T>, alias: String, init: (DataSet.FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit) = {}
   ): Field<T> {
     return field(field.`as`(alias), init)
   }
 
   fun <T> field(
-    field: Field<T>, init: (FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit) = {}
+    field: Field<T>, init: (DataSet.FieldConfiguration.Builder<T>.(field: Field<T>) -> Unit) = {}
   ): Field<T> {
     val existing = configuredFields[field.name]
     if (existing != null) {
@@ -76,19 +76,19 @@ class Fields<T>(
     searches.add(Search(name, open, search))
   }
 
-  fun <R : Record, TABLE : Select<R>> toTypedQuery(
+  fun <R : Record, TABLE : Select<R>> toDataSet(
     block: (sql: SelectFromStep<Record>) -> Select<R>
-  ): TypedQuery<Select<R>, R, T> {
+  ): DataSet<Select<R>, R, T> {
     val query = block(DSL.select(fields))
 
     // Build field configurations and default ordering
-    val fieldConfigs = mutableMapOf<String, TypedQuery.FieldConfiguration<*>>()
+    val fieldConfigs = mutableMapOf<String, DataSet.FieldConfiguration<*>>()
     val defaultOrdering = mutableListOf<SortField<*>>()
 
     configuredFields.values.forEach { (field, init) ->
-      val builder = TypedQuery.FieldConfiguration.Builder<Any?>(field as Field<Any?>)
+      val builder = DataSet.FieldConfiguration.Builder<Any?>(field as Field<Any?>)
       @Suppress("UNCHECKED_CAST")
-      (init as (TypedQuery.FieldConfiguration.Builder<Any?>).(Field<Any?>) -> Unit)(builder, field as Field<Any?>)
+      (init as (DataSet.FieldConfiguration.Builder<Any?>).(Field<Any?>) -> Unit)(builder, field as Field<Any?>)
       val config = builder.build()
       fieldConfigs[field.name] = config
 
@@ -113,7 +113,7 @@ class Fields<T>(
     }
 
     @Suppress("UNCHECKED_CAST")
-    return TypedQuery(
+    return DataSet(
       table = query,
       mapper = { it.map(mapper as (R) -> T) },
       fields = fieldConfigs,
@@ -121,6 +121,13 @@ class Fields<T>(
       openSearches = openSearchList,
       order = defaultOrdering
     )
+  }
+
+  @Deprecated("Use toDataSet instead", ReplaceWith("toDataSet(block)"))
+  fun <R : Record, TABLE : Select<R>> toTypedQuery(
+    block: (sql: SelectFromStep<Record>) -> Select<R>
+  ): DataSet<Select<R>, R, T> {
+    return toDataSet(block)
   }
 
   private val mapper by lazy {

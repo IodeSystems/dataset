@@ -1,8 +1,7 @@
 package com.iodesystems.db
 
 import com.iodesystems.db.TestUtils.setup
-import com.iodesystems.db.http.DataSet
-import com.iodesystems.db.query.TypedQuery
+import com.iodesystems.db.DataSet
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertNotNull
 import org.jooq.DSLContext
@@ -13,12 +12,12 @@ import org.junit.Test
 import kotlin.random.Random
 
 /**
- * Tests for the new TypedQuery.invoke() API.
+ * Tests for the new DataSet.invoke() API.
  *
- * This test class validates the preferred entry point for creating TypedQuery instances.
+ * This test class validates the preferred entry point for creating DataSet instances.
  * Includes comprehensive tests for error handling, edge cases, and integration with DataSet HTTP layer.
  */
-class TypedQueryInvokeTest {
+class DataSetInvokeTest {
 
   data class UserDto(
     val userId: Long,
@@ -80,7 +79,7 @@ class TypedQueryInvokeTest {
   }
 
   fun <T : Record, M> subject(
-    block: (db: DSLContext) -> TypedQuery<Select<T>, T, M>
+    block: (db: DSLContext) -> DataSet<Select<T>, T, M>
   ): TestUtils.Setup<T, M, Meta> {
     return setup(Meta) { db ->
       Meta.setup(db)
@@ -89,9 +88,9 @@ class TypedQueryInvokeTest {
   }
 
   @Test
-  fun testTypedQueryInvokeBasicUsage() {
+  fun testDataSetInvokeBasicUsage() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) {
             primaryKey()
@@ -143,9 +142,9 @@ class TypedQueryInvokeTest {
   }
 
   @Test
-  fun testTypedQueryInvokeWithJoins() {
+  fun testDataSetInvokeWithJoins() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) {
             primaryKey()
@@ -170,9 +169,9 @@ class TypedQueryInvokeTest {
   }
 
   @Test
-  fun testTypedQueryInvokeWithWhereClause() {
+  fun testDataSetInvokeWithWhereClause() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) {
             primaryKey()
@@ -194,9 +193,9 @@ class TypedQueryInvokeTest {
   }
 
   @Test
-  fun testTypedQueryInvokeWithMapping() {
+  fun testDataSetInvokeWithMapping() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) { primaryKey() },
           field(Meta.FIRST_NAME),
@@ -228,9 +227,9 @@ class TypedQueryInvokeTest {
   }
 
   @Test
-  fun testTypedQueryInvokeWithNamedSearches() {
+  fun testDataSetInvokeWithNamedSearches() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         search("active") { s ->
           Meta.IS_ACTIVE.eq(s.toBooleanStrictOrNull())
         }
@@ -259,10 +258,10 @@ class TypedQueryInvokeTest {
   }
 
   @Test
-  fun testTypedQueryInvokeTypeParameters() {
+  fun testDataSetInvokeTypeParameters() {
     // Verify that the type parameters work correctly
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(field(Meta.USER_ID), field(Meta.FIRST_NAME)).from(Meta.USER)
       }
     }
@@ -272,9 +271,9 @@ class TypedQueryInvokeTest {
   }
 
   @Test
-  fun testTypedQueryInvokeSearchAndPagination() {
+  fun testDataSetInvokeSearchAndPagination() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) {
             primaryKey()
@@ -296,9 +295,9 @@ class TypedQueryInvokeTest {
   }
 
   @Test
-  fun testTypedQueryInvokeErrorHandling() {
+  fun testDataSetInvokeErrorHandling() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) {
             primaryKey()
@@ -322,9 +321,9 @@ class TypedQueryInvokeTest {
   }
 
   @Test
-  fun testTypedQueryInvokeEmptyResults() {
+  fun testDataSetInvokeEmptyResults() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) {
             primaryKey()
@@ -341,9 +340,9 @@ class TypedQueryInvokeTest {
   }
 
   @Test
-  fun testTypedQueryInvokeComplexSearchCombinations() {
+  fun testDataSetInvokeComplexSearchCombinations() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         search("active") { s ->
           Meta.IS_ACTIVE.eq(s.toBooleanStrictOrNull())
         }
@@ -368,9 +367,9 @@ class TypedQueryInvokeTest {
   }
 
   @Test
-  fun testTypedQueryInvokeFieldsNotInSelect() {
+  fun testDataSetInvokeFieldsNotInSelect() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         // Configure a field for search but don't include it in SELECT
         db.select(
           field(Meta.USER_ID) {
@@ -390,16 +389,16 @@ class TypedQueryInvokeTest {
   }
 
   @Test
-  fun testTypedQueryInvokeMultipleOrderings() {
+  fun testDataSetInvokeMultipleOrderings() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) { primaryKey() },
           field(Meta.FIRST_NAME) {
-            orderable(com.iodesystems.db.http.DataSet.Order.Direction.ASC)
+            orderable(DataSet.Order.Direction.ASC)
           },
           field(Meta.LAST_NAME) {
-            orderable(com.iodesystems.db.http.DataSet.Order.Direction.DESC)
+            orderable(DataSet.Order.Direction.DESC)
           }
         ).from(Meta.USER)
       }
@@ -412,9 +411,9 @@ class TypedQueryInvokeTest {
   }
 
   @Test
-  fun testTypedQueryInvokeStreamingResults() {
+  fun testDataSetInvokeStreamingResults() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) { primaryKey() },
           field(Meta.FIRST_NAME)
@@ -429,9 +428,9 @@ class TypedQueryInvokeTest {
   }
 
   @Test
-  fun testTypedQueryInvokeCount() {
+  fun testDataSetInvokeCount() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) {
             primaryKey()
@@ -451,9 +450,9 @@ class TypedQueryInvokeTest {
   }
 
   @Test
-  fun testTypedQueryInvokeBatchMapping() {
+  fun testDataSetInvokeBatchMapping() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) { primaryKey() },
           field(Meta.FIRST_NAME)
@@ -482,9 +481,9 @@ class TypedQueryInvokeTest {
   }
 
   @Test
-  fun testTypedQueryInvokeClearOrder() {
+  fun testDataSetInvokeClearOrder() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) { primaryKey() },
           field(Meta.FIRST_NAME) {
@@ -503,9 +502,9 @@ class TypedQueryInvokeTest {
   }
 
   @Test
-  fun testTypedQueryInvokeChainedOperations() {
+  fun testDataSetInvokeChainedOperations() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) {
             primaryKey()
@@ -537,7 +536,7 @@ class TypedQueryInvokeTest {
   @Test
   fun testDataSetQueryIntegration() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) {
             primaryKey()
@@ -599,7 +598,7 @@ class TypedQueryInvokeTest {
   @Test
   fun testDataSetFilterIntegration() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) {
             primaryKey()
@@ -627,7 +626,7 @@ class TypedQueryInvokeTest {
   @Test
   fun testDataSetQueryWithPagination() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) { primaryKey() },
           field(Meta.FIRST_NAME) { orderable() }
@@ -653,14 +652,14 @@ class TypedQueryInvokeTest {
   @Test
   fun testDataSetQueryWithOrdering() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) { primaryKey() },
           field(Meta.FIRST_NAME) {
-            orderable(com.iodesystems.db.http.DataSet.Order.Direction.ASC)
+            orderable(DataSet.Order.Direction.ASC)
           },
           field(Meta.LAST_NAME) {
-            orderable(com.iodesystems.db.http.DataSet.Order.Direction.DESC)
+            orderable(DataSet.Order.Direction.DESC)
           }
         ).from(Meta.USER)
       }
@@ -684,7 +683,7 @@ class TypedQueryInvokeTest {
   @Test
   fun testDataSetQueryWithSearchAndFilter() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         search("active") { s ->
           Meta.IS_ACTIVE.eq(s.toBooleanStrictOrNull())
         }
@@ -715,7 +714,7 @@ class TypedQueryInvokeTest {
   @Test
   fun testDataSetFilterUnlimited() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) { primaryKey() }
         ).from(Meta.USER)
@@ -737,7 +736,7 @@ class TypedQueryInvokeTest {
   @Test
   fun testDataSetQueryEmptySearch() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) { primaryKey() },
           field(Meta.FIRST_NAME) {
@@ -764,7 +763,7 @@ class TypedQueryInvokeTest {
   @Test
   fun testDataSetQuerySearchRendered() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) {
             primaryKey()

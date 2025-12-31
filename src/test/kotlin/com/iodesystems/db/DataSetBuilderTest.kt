@@ -1,7 +1,7 @@
 package com.iodesystems.db
 
 import com.iodesystems.db.TestUtils.setup
-import com.iodesystems.db.query.TypedQuery
+import com.iodesystems.db.DataSet
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertNotNull
 import org.jooq.DSLContext
@@ -12,9 +12,9 @@ import org.junit.Test
 import kotlin.random.Random
 
 /**
- * Tests for the TypedQuery invoke API (previously DataSetBuilder).
+ * Tests for the DataSet invoke API (previously DataSetBuilder).
  *
- * These tests have been migrated from DataSetBuilder.build to TypedQuery { ... }
+ * These tests have been migrated from DataSetBuilder.build to DataSet { ... }
  */
 class DataSetBuilderTest {
 
@@ -80,7 +80,7 @@ class DataSetBuilderTest {
   }
 
   fun <T : Record, M> subject(
-    block: (db: DSLContext) -> TypedQuery<Select<T>, T, M>
+    block: (db: DSLContext) -> DataSet<Select<T>, T, M>
   ): TestUtils.Setup<T, M, Meta> {
     return setup(Meta) { db ->
       Meta.setup(db)
@@ -91,7 +91,7 @@ class DataSetBuilderTest {
   @Test
   fun testDataSetBuilderApiExists() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) {
             primaryKey()
@@ -137,9 +137,9 @@ class DataSetBuilderTest {
 
   @Test
   fun testCovariance() {
-    // Test that TypedQuery works with generic record types
+    // Test that DataSet works with generic record types
     val setup = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) {
             primaryKey()
@@ -162,7 +162,7 @@ class DataSetBuilderTest {
     val typedQuery = subject { db ->
       val contact = Meta.CONTACT
       val contactId = Meta.CONTACT_ID
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) {
             primaryKey()
@@ -224,7 +224,7 @@ class DataSetBuilderTest {
   @Test
   fun testDataSetBuilderWithWhereClause() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         db.select(
           field(Meta.USER_ID) {
             primaryKey()
@@ -284,7 +284,7 @@ class DataSetBuilderTest {
   @Test
   fun testDataSetBuilderWithMapping() {
     val typedQuery = subject { db ->
-      TypedQuery {
+      DataSet {
         search("test") { s ->
           Meta.FIRST_NAME.eq(s)
         }

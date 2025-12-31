@@ -1,15 +1,13 @@
 package com.iodesystems.db.util
 
-import com.iodesystems.db.http.DataSet
-import com.iodesystems.db.query.TypedQuery
+import com.iodesystems.db.DataSet
 import org.jooq.DSLContext
 import org.jooq.Record
 import org.jooq.Select
-import org.jooq.Table
 
 data class Debug(
   val req: DataSet.Request,
-  val query: TypedQuery<*, *, *>,
+  val query: DataSet<*, *, *>,
   val search: String,
   val searchConditions: String,
   val partition: String,
@@ -17,7 +15,7 @@ data class Debug(
   val sql: String,
 ) {
   companion object {
-    fun <T : Select<R>, R : Record, M> TypedQuery<T, R, M>.debug(db: DSLContext, req: DataSet.Request): Debug {
+    fun <T : Select<R>, R : Record, M> DataSet<T, R, M>.debug(db: DSLContext, req: DataSet.Request): Debug {
       return Debug(
         req = req,
         query = this,

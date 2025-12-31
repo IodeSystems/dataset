@@ -1,6 +1,6 @@
 package com.iodesystems.db.search
 
-import com.iodesystems.db.query.TypedQuery
+import com.iodesystems.db.DataSet
 import com.iodesystems.db.search.errors.InvalidSearchStringException
 import com.iodesystems.db.search.errors.SneakyInvalidSearchStringException
 import com.iodesystems.db.search.model.Conjunction
@@ -24,7 +24,7 @@ class SearchConditionFactory {
     fun getOpenSearchProviders(): Collection<SearchProvider>
   }
 
-  fun search(search: String, context: SearchConditionContext): TypedQuery.SearchRendered {
+  fun search(search: String, context: SearchConditionContext): DataSet.SearchRendered {
     val searchConditions = mutableListOf<Condition>()
     try {
       var termsCondition: Condition? = null
@@ -64,7 +64,7 @@ class SearchConditionFactory {
       if (termsCondition != null) {
         searchConditions.add(termsCondition)
       }
-      return TypedQuery.SearchRendered(searchParsed.search, DSL.or(searchConditions))
+      return DataSet.SearchRendered(searchParsed.search, DSL.or(searchConditions))
     } catch (e: InvalidSearchStringException) {
       throw SneakyInvalidSearchStringException(
         "Invalid search while building conditions:" + e.message, e

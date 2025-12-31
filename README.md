@@ -19,7 +19,7 @@ dataset.
 
 All you have to do is:
 
-1. Define a TypedQuery from a JOOQ table
+1. Define a DataSet from a JOOQ table
 2. Configure fields as searchable/orderable
 3. Send a JSON DataSet.Request to an endpoint
 4. Render produced records and sizing information
@@ -56,7 +56,7 @@ WHERE
 
 And given the schema:
 ```kotlin
-val query = TypedQuery {
+val query = DataSet {
     search("daysAgo") { s ->
         if (s.startsWith("<")) {
             val ltDaysAgo = s.drop(1).toLongOrNull()

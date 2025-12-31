@@ -1,7 +1,6 @@
 package com.iodesystems.db
 
-import com.iodesystems.db.http.DataSet
-import com.iodesystems.db.query.TypedQuery
+import com.iodesystems.db.DataSet
 import org.h2.jdbcx.JdbcConnectionPool
 import org.jooq.*
 import org.jooq.impl.DSL
@@ -13,20 +12,20 @@ object TestUtils {
 
   data class Setup<R : Record, M, T>(
     val db: DefaultDSLContext,
-    val query: TypedQuery<Select<R>, R, M>,
+    val query: DataSet<Select<R>, R, M>,
     val queries: MutableList<String>,
     val meta: () -> T
   )
 
   fun <T : Record, M> setup(
-    block: (DSLContext) -> TypedQuery<Select<T>, T, M>
+    block: (DSLContext) -> DataSet<Select<T>, T, M>
   ): Setup<T, M, Unit> {
     return setup(Unit, block)
   }
 
   fun <T : Record, M, Q> setup(
     meta: Q,
-    block: (DSLContext) -> TypedQuery<Select<T>, T, M>
+    block: (DSLContext) -> DataSet<Select<T>, T, M>
   ): Setup<T, M, Q> {
     val queries = mutableListOf<String>()
     val config = DefaultConfiguration().apply {
@@ -106,7 +105,7 @@ object TestUtils {
           }
         }
 
-      }.toTypedQuery { sql ->
+      }.toDataSet { sql ->
         sql.from(SimpleMeta.EMAIL)
       }
     }
