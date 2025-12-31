@@ -62,6 +62,101 @@ class DataSet {
       SEARCH, PARTITION, ORDERING, SELECTION
     }
 
+    /**
+     * Apply all request filters (search, selection, ordering, pagination) and fetch data.
+     *
+     * Use this when you need the actual data with all filters applied.
+     * For bulk operations (delete, update), use unlimit=true to get all matching rows.
+     *
+     * @param db Database context
+     * @param query DataSet query builder
+     * @param request Request with search, selection, ordering, pagination
+     * @param unlimit If true, ignores pagination and returns all matching rows
+     * @return Filtered data
+     */
+    fun <T> filter(
+      db: DSLContext,
+      query: TypedQuery<*, *, T>,
+      request: Request,
+      unlimit: Boolean = false
+    ): List<T> {
+      val transformed = request.transform(query, unlimit = unlimit)
+      return transformed.data(db).page(0, -1)
+    }
+
+    /**
+     * Apply filters and return full response with counts and column metadata.
+     *
+     * Use this for list/table views that need pagination, counts, and column info.
+     * Selection is applied if present in request.
+     *
+     * @param db Database context
+     * @param query DataSet query builder
+     * @param request Request with all filter options
+     * @return Response with data, counts, columns
+     */
+    fun <T> query(
+      db: DSLContext,
+      query: TypedQuery<*, *, T>,
+      request: Request
+    ): Response<T> {
+      // Apply selection/search/ordering first
+      val transformed = request.transform(query, unlimit = false)
+      var dataSet = transformed.data(db)
+
+      // Apply partition first
+      val partition = request.partition
+      if (!partition.isNullOrEmpty()) {
+        dataSet = dataSet.search(partition)
+      }
+
+      // Maybe fetch counts?
+      var count: Response.Count? = null
+      if (request.showCounts == true) {
+        // Count after selection is applied
+        val inPartition = dataSet.count()
+        count = Response.Count(inPartition, inPartition)
+      }
+
+      val shouldQuery = request.showCounts != true || (count?.inQuery ?: 0) > 0
+      val page = request.page ?: 0
+      val pageSize = request.pageSize ?: 50
+
+      val data = if (shouldQuery) {
+        dataSet.page(page, pageSize)
+      } else {
+        emptyList()
+      }
+
+      // Do we even want these columns?
+      val columns = if (request.showColumns == true) {
+        transformed.fields.values.map { field ->
+          val order = transformed.order.find { it.name == field.field.name }?.order
+          Response.Column(
+            name = field.name,
+            title = field.title,
+            type = field.field.dataType.type.simpleName,
+            searchable = field.search != null,
+            orderable = field.orderable,
+            sortDirection = when (order) {
+              null -> null
+              SortOrder.ASC -> Order.Direction.ASC
+              else -> Order.Direction.DESC
+            },
+            primaryKey = field.primaryKey,
+          )
+        }
+      } else {
+        null
+      }
+
+      return Response(
+        count = count,
+        columns = columns,
+        data = data,
+        searchRendered = if (request.search.isNullOrEmpty()) "" else transformed.lastSearchCorrected
+      )
+    }
 
   }
 
@@ -80,6 +175,40 @@ class DataSet {
     val showColumns: Boolean? = null,
     val selection: Selection? = null
   ) {
+    /**
+     * Apply all filters and fetch data.
+     *
+     * @param db Database context
+     * @param query DataSet query builder
+     * @param unlimit If true, returns all matching rows (for bulk operations)
+     * @return Filtered data
+     */
+    fun <T> filter(
+      db: DSLContext,
+      query: TypedQuery<*, *, T>,
+      unlimit: Boolean = false
+    ): List<T> {
+      return DataSet.filter(db, query, this, unlimit)
+    }
+
+    /**
+     * Apply all filters and return full response with counts and columns.
+     *
+     * @param db Database context
+     * @param query DataSet query builder
+     * @return Response with data, counts, columns
+     */
+    fun <T> query(
+      db: DSLContext,
+      query: TypedQuery<*, *, T>
+    ): Response<T> {
+      return DataSet.query(db, query, this)
+    }
+
+    /**
+     * @deprecated Use filter() or query() instead. toResponse() does not apply selection.
+     */
+    @Deprecated("Use filter() or query() instead", ReplaceWith("query(db, dataSet)"))
     fun <T> toResponse(
       db: DSLContext,
       dataSet: TypedQuery<*, *, T>
