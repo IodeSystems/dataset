@@ -145,7 +145,7 @@ publishing {
             if (it.isNullOrBlank()) rootProject.description
             else it
           })
-          url.set("https://iodesystems.github.io/typescript-generator/")
+          url.set("https://github.com/iodesystems/dataset")
           licenses {
             license {
               name.set("MIT License")
@@ -165,9 +165,9 @@ publishing {
             }
           }
           scm {
-            connection.set("scm:git:git@github.com:IodeSystems/typescript-generator.git")
-            developerConnection.set("scm:git:git@github.com:IodeSystems/typescript-generator.git")
-            url.set("https://iodesystems.github.io/typescript-generator/")
+            connection.set("scm:git:git@github.com:iodesystems/dataset.git")
+            developerConnection.set("scm:git:git@github.com:iodesystems/dataset.git")
+            url.set("https://github.com/iodesystems/dataset")
             tag.set("${rootProject.version}")
           }
         }

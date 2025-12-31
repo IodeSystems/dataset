@@ -72,10 +72,16 @@ tasks.register("releaseRevert") {
 tasks.register("releasePublish") {
   group = "release"
   dependsOn(
-    tasks.clean, tasks.build,
-    subprojects.map { project -> project.tasks.publish },
-    tasks.closeAndReleaseStagingRepositories
+    tasks.clean,
+    tasks.build,
+    tasks.named("publishToSonatype"),
+    tasks.named("closeAndReleaseSonatypeStagingRepository")
   )
+}
+
+// Ensure proper task ordering: close/release must run after publish
+tasks.named("closeAndReleaseSonatypeStagingRepository").configure {
+  mustRunAfter(tasks.named("publishToSonatype"))
 }
 tasks.register("releasePrepareNextDevelopmentIteration") {
   group = "release"
