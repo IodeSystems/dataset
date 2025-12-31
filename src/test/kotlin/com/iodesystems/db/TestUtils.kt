@@ -59,32 +59,11 @@ object TestUtils {
     }
   }
 
-  fun setup(): Setup<Record, Record, SimpleMeta> {
+  fun setup(): Setup<Record, Map<String, *>, SimpleMeta> {
+    @Suppress("UNCHECKED_CAST")
     return setup(SimpleMeta) { db ->
       SimpleMeta.create(db)
-      DataSet.build {
-        field(SimpleMeta.EMAIL_ID)
-        field(SimpleMeta.CONTENT) { f ->
-          search { s ->
-            f.containsIgnoreCase(s)
-          }
-        }
-        field(SimpleMeta.FROM) { f ->
-          search { s ->
-            f.eq(s)
-          }
-        }
-        field(SimpleMeta.ATTACHMENT) { f ->
-          search { s ->
-            if (s.lowercase() == "true") {
-              f.isNull
-            } else {
-              null
-            }
-          }
-        }
-        val CREATED_AT = field(SimpleMeta.CREATED_AT)
-
+      DataSet {
         search("is_x", open = true) { s ->
           if (s == "x") DSL.trueCondition()
           else null
@@ -93,21 +72,42 @@ object TestUtils {
           if (s.startsWith("<")) {
             val ltDaysAgo = s.drop(1).toLongOrNull()
             if (ltDaysAgo == null) null
-            else CREATED_AT.lessOrEqual(OffsetDateTime.now().minusDays(ltDaysAgo))
+            else SimpleMeta.CREATED_AT.lessOrEqual(OffsetDateTime.now().minusDays(ltDaysAgo))
           } else if (s.startsWith(">")) {
             val gtDaysAgo = s.drop(1).toLongOrNull()
             if (gtDaysAgo == null) null
-            else CREATED_AT.greaterOrEqual(OffsetDateTime.now().minusDays(gtDaysAgo))
+            else SimpleMeta.CREATED_AT.greaterOrEqual(OffsetDateTime.now().minusDays(gtDaysAgo))
           } else {
             val daysAgo = s.toLongOrNull()
             if (daysAgo == null) null
-            else CREATED_AT.greaterOrEqual(OffsetDateTime.now().minusDays(daysAgo))
+            else SimpleMeta.CREATED_AT.greaterOrEqual(OffsetDateTime.now().minusDays(daysAgo))
           }
         }
 
-      }.toDataSet { sql ->
-        sql.from(SimpleMeta.EMAIL)
-      }
-    }
+        db.select(
+          field(SimpleMeta.EMAIL_ID),
+          field(SimpleMeta.CONTENT) {
+            search { f, s ->
+              f.containsIgnoreCase(s)
+            }
+          },
+          field(SimpleMeta.FROM) {
+            search { f, s ->
+              f.eq(s)
+            }
+          },
+          field(SimpleMeta.ATTACHMENT) {
+            search { f, s ->
+              if (s.lowercase() == "true") {
+                f.isNull
+              } else {
+                null
+              }
+            }
+          },
+          SimpleMeta.CREATED_AT
+        ).from(SimpleMeta.EMAIL)
+      }.mapBatch { records -> records.map { it.intoMap() } }
+    } as Setup<Record, Map<String, *>, SimpleMeta>
   }
 }

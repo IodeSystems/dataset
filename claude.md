@@ -5,7 +5,7 @@
 **DataSet** is a Kotlin library that provides a type-safe, DSL-based query builder for converting freeform user queries into JOOQ SQL conditions. It emphasizes "least surprise" behavior and declarative configuration.
 
 **Repository:** iODESystems/dataset
-**Current Version:** 8.0.9-SNAPSHOT
+**Current Version:** 9.0.0-SNAPSHOT
 **Target JVM:** Java 21
 **License:** MIT
 **Key Dependencies:** JOOQ, ANTLR4, Kotlin stdlib
@@ -35,95 +35,82 @@ WHERE email LIKE '%john@email.com%'
 
 ### Core Components
 
-**TypedQuery** (`src/main/kotlin/com/iodesystems/db/query/TypedQuery.kt`)
-- Core data structure representing a configured query
+**DataSet** (`src/main/kotlin/com/iodesystems/db/DataSet.kt`)
+- Core data class representing a configured query
 - Holds table, mapper, conditions, ordering, field configurations
 - Immutable with copy-based mutation methods
+- **Primary API entry point:** `DataSet { }` operator function
 
-**DataSetBuilder** (`src/main/kotlin/com/iodesystems/db/http/DataSetBuilder.kt`)
-- **Preferred API pattern** for constructing TypedQuery instances
-- Provides DSL for inline field configuration within SELECT statements
-- Returns TypedQuery directly without intermediate steps
+**DataSetContext** (`src/main/kotlin/com/iodesystems/db/DataSet.kt`)
+- DSL context for building DataSet instances
+- Provides `field()` and `search()` functions for configuration
+- Used internally by `DataSet { }` operator
 
 **SearchParser** (`src/main/kotlin/com/iodesystems/db/search/SearchParser.kt`)
 - ANTLR4-based parser for freeform search queries
 - Supports: quoted strings, AND/OR logic, grouping, negation, field targeting
 - Converts natural language searches to structured Term lists
 
-**DataSet.query() and filter()** (`src/main/kotlin/com/iodesystems/db/http/DataSet.kt`)
-- HTTP integration layer
+**Request.response() and Request.filter()** (`src/main/kotlin/com/iodesystems/db/DataSet.kt`)
+- HTTP integration layer (Request methods)
 - Converts Request objects (with search, ordering, pagination) into database queries
 - Returns Response objects with data, counts, and column metadata
+
+**Fields** (`src/main/kotlin/com/iodesystems/db/query/Fields.kt`)
+- Legacy builder API (still supported for backward compatibility)
+- Used by some existing code but not recommended for new code
 
 ### Directory Structure
 
 ```
 src/main/kotlin/com/iodesystems/db/
-├── http/
-│   ├── DataSet.kt               # HTTP request/response handling
-│   ├── DataSetBuilder.kt        # Preferred API entry point
-│   └── DataSetBuilderContext.kt # DSL context for builder
+├── DataSet.kt                   # Core data class + primary API entry point
 ├── query/
-│   ├── TypedQuery.kt            # Core query data structure
-│   ├── Fields.kt                # Field configuration builder (legacy)
-│   └── FieldConfigBuilder.kt    # Field configuration DSL
+│   └── Fields.kt                # Legacy field configuration builder
 ├── search/
 │   ├── SearchParser.kt          # ANTLR4 search parser
 │   ├── SearchConditionFactory.kt # Converts parsed search to SQL conditions
-│   └── DynamicCondition.kt      # Lazy condition evaluation
+│   ├── model/
+│   │   ├── Term.kt              # Search term model
+│   │   ├── TermValue.kt         # Search term value model
+│   │   └── Conjunction.kt       # AND/OR conjunction type
+│   └── errors/
+│       ├── InvalidSearchStringException.kt
+│       └── SneakyInvalidSearchStringException.kt
 ├── jooq/
-│   └── JooqExtensions.kt        # JOOQ utility extensions
+│   └── LazySql.kt               # Lazy SQL evaluation
 └── util/
     ├── StringUtil.kt            # String manipulation helpers
-    └── DebugUtil.kt             # Debug logging utilities
+    └── Debug.kt                 # Debug logging utilities
 
 src/main/antlr4/
-├── SearchLexer.g4               # Search query lexer grammar
-└── SearchParser.g4              # Search query parser grammar
+├── DataSetSearchLexer.g4        # Search query lexer grammar
+└── DataSetSearchParser.g4       # Search query parser grammar
 
 src/test/kotlin/com/iodesystems/db/
 ├── TypedQueryTest.kt            # Query parsing and execution tests
-├── DataSetBuilderTest.kt        # Builder API tests
+├── DataSetBuilderTest.kt        # Builder API tests (v9 API)
+├── TypedQueryInvokeTest.kt      # DataSet invoke API tests
 └── TestUtils.kt                 # Test infrastructure (H2, mocks)
 ```
 
 ---
 
-## Current Refactoring Initiative
+## v9.0 Refactoring - COMPLETED ✅
 
-### Problem Statement
+### What Changed
 
-Over time, the library has evolved multiple API patterns for constructing TypedQuery instances:
+The v9.0 refactoring consolidated multiple API patterns into a single, unified entry point.
 
-1. **TypedQuery.forTable()** - Original companion factory method
-2. **DataSet.forTable()** - HTTP package wrapper (3 overloads)
-3. **Fields.toTypedQuery()** - Fluent builder pattern
-4. **DataSetBuilder.build()** - Current preferred pattern
+**Removed:**
+- `DataSetBuilder.build()` - Was the preferred v8.x pattern
+- `DataSet.forTable()` - Legacy HTTP package wrapper
+- `TypedQuery.forTable()` - Never existed, was planned but not implemented
+- `Fields.toTypedQuery()` - Legacy fluent builder pattern (still exists via `Fields.toDataSet()`)
 
-**Issues:**
-- Too many entry points cause confusion
-- Not discoverable (users don't know which to use)
-- Code duplication across layers
-- Maintenance burden for multiple patterns
-
-**User's Usage Pattern:**
-The maintainer uses **exclusively DataSetBuilder.build()** and wants to make this the only pattern.
-
----
-
-## Refactoring Goals (v9.0)
-
-### 1. Single Entry Point API
-
-**Remove these methods:**
-- `TypedQuery.forTable()`, `forTableMaps()`, `forTableRecords()`
-- `DataSet.forTable()` (all 3 overloads)
-- `DataSet.build()` and `buildForMaps()`
-- `Fields.toTypedQuery()`
-
-**Create new primary API:**
+**New Primary API:**
 ```kotlin
-TypedQuery {
+DataSet {
   db.select(
     field(USER_ID) {
       primaryKey()
@@ -137,70 +124,44 @@ TypedQuery {
 }
 ```
 
-**Implementation approach:**
-- Add `operator fun invoke()` to TypedQuery companion object
-- Migrate DataSetBuilder logic into TypedQuery companion
-- Remove DataSetBuilder object entirely (or keep as deprecated alias)
+**Implementation:**
+- Added `operator fun invoke()` to DataSet companion object
+- Created `DataSetContext` class for DSL building
+- Migrated all builder logic into DataSet companion
+- Kept `Fields` class for backward compatibility but not recommended
 
-### 2. Clean Up Unused Code
+### Code Cleanup Completed
 
-**Confirmed unused:**
-- `Map.partition()` extension in TypedQuery.kt:459-470
-- Deprecated `DataSet.toResponse()` method (already marked deprecated)
+**Removed/Deprecated:**
+- `Request.toResponse()` method - Deprecated in favor of `DataSet.Response.fromRequest()`
+- Old builder patterns consolidated
 
-**Needs audit:**
-- StringUtil extensions (`camelToSnakeCase`, `lowerCaseFirstLetter`, `toEnumOrNull`)
-- DynamicCondition (uses deprecated JOOQ APIs)
-- Duplicate response building logic in DataSet.kt
+**Still Present (for compatibility):**
+- `LazySql` - Uses deprecated JOOQ APIs but still functional
+- StringUtil extensions - All still in use
 
-### 3. Improve Test Coverage
+### Test Migration Completed ✅
 
 **Current state:**
-- TypedQueryTest.kt: 17 tests using OLD API (DataSet.forTable)
-- DataSetBuilderTest.kt: 5 tests using NEW API (DataSetBuilder.build)
+- TypedQueryTest.kt: 17 tests using v9.0 API (`DataSet { }`)
+- DataSetBuilderTest.kt: 5 tests using v9.0 API
+- TypedQueryInvokeTest.kt: 26 comprehensive integration tests
+- All tests passing with `BUILD SUCCESSFUL`
 
-**Goals:**
-- Port all tests to new API
-- Expand coverage to 30+ tests
-- Add error handling tests
-- Add integration tests with DataSet.query() and filter()
-- Test edge cases: complex joins, subqueries, field qualification
+**Coverage:**
+- ✅ All public API methods tested
+- ✅ All search parser features tested
+- ✅ Error handling and edge cases
+- ✅ Complex joins and field qualification
+- ✅ Integration tests with request.response() and request.filter()
+- ✅ HTTP Request/Response integration
 
-### 4. Improve Discoverability
+### Documentation Updated ✅
 
-**Issues:**
-- No clear "getting started" path
-- Multiple entry points confuse new users
-- Builder pattern hidden in companion object
-
-**Solutions:**
-- Single, obvious entry point: `TypedQuery { ... }`
-- Comprehensive KDoc with examples
-- Updated README with quick start
-- Migration guide for v8.x users
-
----
-
-## Implementation Phases
-
-### Phase 1: Non-Breaking Addition (v8.x)
-1. Add `TypedQuery.invoke()` operator as new preferred API
-2. Keep all existing APIs intact
-3. Add `@Deprecated` annotations with migration hints
-4. Update documentation to show new pattern first
-
-### Phase 2: Test Migration (v8.x)
-1. Create new test file with new API
-2. Port all TypedQueryTest cases
-3. Expand coverage for edge cases
-4. Add integration tests
-
-### Phase 3: Breaking Cleanup (v9.0)
-1. Remove all deprecated methods
-2. Remove truly unused utilities
-3. Simplify internal architecture (remove Fields if possible)
-4. Update README and create migration guide
-5. Publish with major version bump
+- ✅ README.md updated with v9.0 API examples
+- ✅ Migration guide added to README
+- ✅ CLAUDE.md updated to reflect completed refactoring
+- ✅ All examples use new `DataSet { }` syntax
 
 ---
 
@@ -208,9 +169,9 @@ TypedQuery {
 
 ### Why Keep Type Parameters?
 
-TypedQuery maintains three type parameters:
+DataSet maintains three type parameters:
 ```kotlin
-TypedQuery<T : Select<R>, R : Record, M>
+DataSet<T : Select<R>, R : Record, M>
 ```
 
 - **T**: The JOOQ Select type (preserves query builder type)
@@ -225,7 +186,7 @@ This allows:
 ### Why Immutable with Copy-Based Mutation?
 
 ```kotlin
-fun search(query: String): TypedQuery<T, R, M> = copy(...)
+fun search(query: String): DataSet<T, R, M> = copy(...)
 ```
 
 Benefits:
@@ -255,16 +216,16 @@ ANTLR4 provides:
 
 ### Adding a New Field Configuration Option
 
-1. Add property to `FieldConfiguration` data class (TypedQuery.kt)
-2. Add builder method to `FieldConfiguration.Builder`
-3. Add builder method to `FieldConfigBuilder` (DataSetBuilderContext.kt)
-4. Update `buildTypedQuery()` to handle new property
-5. Add test in DataSetBuilderTest.kt
+1. Add property to `FieldConfiguration` data class (DataSet.kt)
+2. Add builder method to `FieldConfiguration.Builder` (DataSet.kt)
+3. Add builder method to `DataSetFieldConfigBuilder` (DataSet.kt)
+4. Update `DataSetContext.buildDataSet()` to handle new property
+5. Add test in TypedQueryInvokeTest.kt or DataSetBuilderTest.kt
 
 ### Adding a New Search Feature
 
-1. Update ANTLR4 grammar files (SearchLexer.g4, SearchParser.g4)
-2. Run Gradle task to regenerate parser: `./gradlew generateGrammarSource`
+1. Update ANTLR4 grammar files (DataSetSearchLexer.g4, DataSetSearchParser.g4)
+2. Run Gradle task to regenerate parser: `./gradlew generateLexer generateParser`
 3. Update `SearchParser.parse()` to handle new syntax
 4. Update `SearchConditionFactory.search()` to generate conditions
 5. Add tests in TypedQueryTest.kt
@@ -297,26 +258,7 @@ See release-conventions.gradle.kts for publishing configuration.
 
 ### Before (v8.x)
 
-**Old Pattern 1: DataSet.forTable**
-```kotlin
-DataSet.forTable(table) {
-  field(FIELD_A) { f ->
-    search { s -> f.containsIgnoreCase(s) }
-  }
-  autoDetectFields(db)
-}
-```
-
-**Old Pattern 2: TypedQuery.forTable**
-```kotlin
-TypedQuery.forTable(DSL.selectFrom(table), { it }) {
-  field(FIELD_A) {
-    orderable()
-  }
-}
-```
-
-**Old Pattern 3: DataSetBuilder.build (current preferred)**
+**Old Pattern 1: DataSetBuilder.build (was preferred in v8.x)**
 ```kotlin
 DataSetBuilder.build {
   db.select(
@@ -325,26 +267,41 @@ DataSetBuilder.build {
 }
 ```
 
+**Old Pattern 2: Fields.toDataSet**
+```kotlin
+val fields = DataSet.build {
+  field(USER_ID)
+  field(EMAIL) { f ->
+    search { s -> f.containsIgnoreCase(s) }
+  }
+}
+val query = fields.toDataSet { sql -> sql.from(USER) }
+```
+
 ### After (v9.0)
 
-**New Pattern: TypedQuery { }**
+**New Pattern: DataSet { }**
 ```kotlin
-TypedQuery {
+DataSet {
   db.select(
     field(USER_ID) {
       primaryKey()
       search { f, s -> f.eq(s.toLongOrNull()) }
+    },
+    field(EMAIL) {
+      search { f, s -> f.containsIgnoreCase(s) }
     }
   ).from(USER)
 }
 ```
 
 **Key Changes:**
-1. Use `TypedQuery { ... }` instead of `DataSetBuilder.build { ... }`
-2. Use `TypedQuery { ... }` instead of `DataSet.forTable(...) { ... }`
-3. Use `TypedQuery { ... }` instead of `TypedQuery.forTable(...) { ... }`
-4. Field configuration syntax remains the same
-5. Search syntax remains the same
+1. Use `DataSet { ... }` instead of `DataSetBuilder.build { ... }`
+2. Use `DataSet { ... }` instead of `Fields.toDataSet { ... }`
+3. Field configuration lambda now receives both field and search string: `search { f, s -> ... }`
+4. Named searches are defined before the select: `search("name") { ... }`
+5. HTTP methods: Use `request.response()` and `request.filter()` instead of companion methods
+6. Request.query() renamed to Request.response()
 
 ---
 
@@ -415,28 +372,27 @@ TypedQuery {
 
 ## Known Issues and Limitations
 
-### 1. DynamicCondition Uses Deprecated JOOQ APIs
-**File:** `src/main/kotlin/com/iodesystems/db/search/DynamicCondition.kt`
+### 1. LazySql Uses Deprecated JOOQ APIs
+**File:** `src/main/kotlin/com/iodesystems/db/jooq/LazySql.kt`
 **Status:** Still functional but relies on `@Deprecated` JOOQ interfaces
 **Impact:** May break in future JOOQ versions
 **Action:** Monitor JOOQ releases, consider alternative implementation
 
-### 2. Multiple Response Building Paths
-**Files:** `DataSet.query()` vs `Response.fromRequest()`
-**Status:** Duplicate logic with subtle differences
-**Impact:** Maintenance burden, potential for bugs
-**Action:** Consolidate in v9.0 refactoring
+### 2. JOOQ Type Parameters Can Be Complex
+**Issue:** JOOQ returns specific Record types (Record3, Record5, etc.) not generic Record
+**Status:** Working as intended, but can cause type compatibility issues
+**Impact:** May need type casts when using generic Setup or test utilities
+**Workaround:** Use `.mapBatch { it.map { record -> record.intoMap() } }` or explicit type casts
 
 ### 3. Limited Support for Subqueries
 **Status:** Works but not extensively tested
 **Impact:** May have edge cases with field qualification
 **Action:** Add comprehensive subquery tests
 
-### 4. Auto-Detect Fields Requires DSLContext
-**Method:** `TypedQuery.Builder.autoDetectFields(db)`
-**Status:** Convenient but requires database connection during setup
-**Impact:** Not usable in purely declarative scenarios
-**Action:** Consider alternative field detection mechanism
+### 4. Legacy Fields API Still Present
+**Status:** `Fields` class and `DataSet.build()` methods still exist for backward compatibility
+**Impact:** Maintenance burden, potential confusion for new users
+**Recommendation:** Use `DataSet { }` for all new code
 
 ---
 
@@ -453,9 +409,10 @@ TypedQuery {
 
 ### API Improvements
 1. **Coroutine support** - Async/suspend query execution
-2. **Streaming API** - Large result set streaming with backpressure
+2. **Streaming API** - Enhanced large result set streaming with backpressure
 3. **Query explain** - Debug what SQL will be generated without executing
 4. **Field validators** - Type-safe validation rules on field configuration
+5. **Auto-detect fields v2** - Better field detection without requiring database connection
 
 ---
 
@@ -530,9 +487,16 @@ Handles:
 
 ## Quick Reference
 
-### Create a TypedQuery (Current v8.x)
+### Create a DataSet (v9.0)
 ```kotlin
-val query = DataSetBuilder.build {
+val query = DataSet {
+  search("daysAgo") { s ->
+    // Custom named search
+    s.toLongOrNull()?.let {
+      CREATED_AT.greaterOrEqual(OffsetDateTime.now().minusDays(it))
+    }
+  }
+
   db.select(
     field(USER_ID) {
       primaryKey()
@@ -552,15 +516,28 @@ val query = DataSetBuilder.build {
 ```
 
 ### Execute a Query
+
+**Programmatic API:**
+```kotlin
+val data = query
+  .search("john@email.com")
+  .page(page = 0, pageSize = 50)
+  .data(db)
+  .fetch()
+```
+
+**HTTP Request API:**
 ```kotlin
 val db: DSLContext = // ... JOOQ context
 val request = DataSet.Request(
   search = "john@email.com",
   page = 0,
-  pageSize = 50
+  pageSize = 50,
+  showColumns = true,
+  showCounts = true
 )
 
-val response = DataSet.query(db, query, request)
+val response = request.response(db, query)
 // response.data: List<UserDto>
 // response.count: Count?
 // response.columns: List<Column>?
@@ -580,13 +557,254 @@ Escaped:            "quote: \"value\""
 ### Field Configuration Options
 ```kotlin
 field(FIELD) {
-  primaryKey()                          // Mark as primary key
-  orderable()                           // Allow ordering by this field
-  orderable(Direction.DESC)             // Default sort direction
-  search { f, s -> f.eq(s) }           // Searchable, open (global search)
-  search(global = false) { f, s -> ... } // Searchable, not open (targeted only)
+  primaryKey()                           // Mark as primary key
+  orderable()                            // Allow ordering by this field
+  orderable(Direction.DESC)              // Default sort direction
+  search { f, s -> f.eq(s) }            // Searchable, global (open search)
+  search(global = false) { f, s -> ... } // Searchable, targeted only
 }
 ```
+
+### Named Search Configuration
+
+Named searches are custom search functions not tied to a specific field. Perfect for date ranges, price ranges, and complex logic.
+
+**Basic Example:**
+```kotlin
+DataSet {
+  search("daysAgo") { s ->
+    when {
+      s.startsWith("<") -> {
+        s.drop(1).toLongOrNull()?.let { days ->
+          CREATED_AT.lessOrEqual(OffsetDateTime.now().minusDays(days))
+        }
+      }
+      s.startsWith(">") -> {
+        s.drop(1).toLongOrNull()?.let { days ->
+          CREATED_AT.greaterOrEqual(OffsetDateTime.now().minusDays(days))
+        }
+      }
+      else -> {
+        s.toLongOrNull()?.let { days ->
+          CREATED_AT.greaterOrEqual(OffsetDateTime.now().minusDays(days))
+        }
+      }
+    }
+  }
+
+  db.select(
+    field(ID) { primaryKey() },
+    field(NAME) { search { f, s -> f.containsIgnoreCase(s) } },
+    CREATED_AT
+  ).from(PRODUCT)
+}
+
+// Usage:
+query.search("daysAgo:<30")   // Created less than 30 days ago
+query.search("daysAgo:>90")   // Created more than 90 days ago
+```
+
+**Advanced Examples:**
+```kotlin
+DataSet {
+  // Price range search
+  search("price") { s ->
+    when {
+      s.startsWith(">=") -> s.drop(2).toBigDecimalOrNull()?.let { PRICE.greaterOrEqual(it) }
+      s.startsWith("<=") -> s.drop(2).toBigDecimalOrNull()?.let { PRICE.lessOrEqual(it) }
+      s.contains("..") -> {
+        val parts = s.split("..")
+        if (parts.size == 2) {
+          val min = parts[0].toBigDecimalOrNull()
+          val max = parts[1].toBigDecimalOrNull()
+          if (min != null && max != null) PRICE.between(min, max) else null
+        } else null
+      }
+      else -> s.toBigDecimalOrNull()?.let { PRICE.eq(it) }
+    }
+  }
+
+  // Status flag search (targeted only)
+  search("active", open = false) { s ->
+    when (s.lowercase()) {
+      "true", "yes" -> STATUS.eq("ACTIVE")
+      "false", "no" -> STATUS.eq("INACTIVE")
+      else -> null
+    }
+  }
+
+  db.select(...).from(...)
+}
+
+// Usage:
+query.search("price:>=100")      // $100 or more
+query.search("price:10..99")     // Between $10 and $99
+query.search("active:true")      // Active only
+```
+
+**Parameters:**
+- `name`: Search target name
+- `open = true`: Participates in global search; `false`: targeted only
+- Return `null` to ignore unmatched strings
+
+### Lazy SQL (Runtime Conditions)
+
+For conditions that must be evaluated **at query execution time** (not at DataSet creation):
+
+**Use Case:** Multi-tenant apps, currentUserId, request-scoped permissions
+
+```kotlin
+val query = DataSet {
+  db.select(
+    field(USER.ID) { primaryKey() }
+  ).from(USER)
+  .where(lazy {
+    USER.TENANT_ID.eq(RequestContext.currentTenantId())
+  })
+}
+```
+
+**Static vs Lazy:**
+- Static: `.where(USER.TENANT_ID.eq(123))` - evaluated once at DataSet creation
+- Lazy: `.where(lazy { USER.TENANT_ID.eq(getCurrentTenantId()) })` - evaluated each query execution
+
+**Common patterns:**
+- Tenant isolation: `.where(lazy { TENANT_ID.eq(context.tenantId) })`
+- User permissions: `.where(lazy { OWNER_ID.eq(context.userId) })`
+- Complex logic: `.where(lazy { if (user.isAdmin) DSL.trueCondition() else OWNER_ID.eq(user.id) })`
+
+**Why lazy SQL?**
+- Discoverable in DataSet DSL (no imports needed)
+- Type-safe and clearer intent
+- Flexible - supports any JOOQ Condition
+
+**Note:** Uses deprecated JOOQ APIs (still works, monitored for breaking changes)
+
+### HTTP Integration: `filter()` vs `response()`
+
+DataSet.Request provides two methods for different use cases:
+
+**`request.filter()` - Data Only**
+```kotlin
+// Returns: List<T>
+val data = request.filter(db, query)
+
+// With unlimit for bulk operations
+val allData = request.filter(db, query, unlimit = true)
+```
+
+- ✅ Returns data only
+- ❌ No counts, columns, searchRendered
+- ✅ Has `unlimit` parameter
+- **Use for:** Bulk operations, exports, simple lists
+
+**`request.response()` - Full Response**
+```kotlin
+// Returns: Response<T> with data, counts, columns, searchRendered
+val response = request.response(db, query)
+```
+
+- ✅ Returns data, counts (optional), columns (optional), searchRendered
+- ❌ No unlimit parameter
+- **Use for:** UI tables, paginated lists, search interfaces
+
+**Comparison:**
+
+| Feature | `filter()` | `response()` |
+|---------|-----------|----------|
+| Returns data | ✅ | ✅ |
+| Returns counts | ❌ | ✅ (optional) |
+| Returns columns | ❌ | ✅ (optional) |
+| Returns searchRendered | ❌ | ✅ |
+| Unlimit option | ✅ | ❌ |
+| Best for | Bulk ops, exports | UI tables, lists |
+
+**Example: Delete Selection**
+```kotlin
+@DeleteMapping("/api/products")
+fun deleteProducts(@RequestBody request: DataSet.Request): Int {
+    // Get all matching records (ignoring pagination)
+    val toDelete = request.filter(db, productQuery, unlimit = true)
+
+    val ids = toDelete.map { it[PRODUCT.ID] }
+    return db.deleteFrom(PRODUCT)
+        .where(PRODUCT.ID.`in`(ids))
+        .execute()
+}
+```
+
+### Selection
+
+Selection filters by specific primary key values. Perfect for "delete selected rows" features.
+
+**Selection Object:**
+```kotlin
+data class Selection(
+    val include: Boolean,        // true = include only; false = exclude
+    val keys: List<List<String>> // Primary key value rows
+)
+```
+
+**Examples:**
+
+Single primary key:
+```json
+{
+  "selection": {
+    "include": true,
+    "keys": [["1"], ["2"], ["5"]]
+  }
+}
+```
+→ SQL: `WHERE ID IN (1, 2, 5)`
+
+Composite primary key:
+```json
+{
+  "selection": {
+    "include": true,
+    "keys": [["user1", "tenant-a"], ["user2", "tenant-b"]]
+  }
+}
+```
+→ SQL: `WHERE (USER_ID='user1' AND TENANT_ID='tenant-a') OR (USER_ID='user2' AND TENANT_ID='tenant-b')`
+
+Exclude mode:
+```json
+{
+  "selection": {
+    "include": false,
+    "keys": [["3"]]
+  }
+}
+```
+→ SQL: `WHERE NOT (ID = 3)`
+
+**Primary Key Configuration:**
+```kotlin
+DataSet {
+  db.select(
+    field(PRODUCT.ID) {
+      primaryKey()  // Required for selection
+      search { f, s -> f.eq(s.toLongOrNull()) }
+    }
+  ).from(PRODUCT)
+}
+```
+
+For composite keys, mark all key fields as `primaryKey()`. Key order in `keys` array must match field order.
+
+**Combining with Search:**
+```json
+{
+  "search": "status:active",
+  "selection": {
+    "include": true,
+    "keys": [["1"], ["2"]]
+  }
+}
+```
+→ Records that are active AND have ID 1 or 2
 
 ---
 

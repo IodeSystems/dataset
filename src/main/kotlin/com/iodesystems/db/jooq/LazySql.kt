@@ -4,7 +4,14 @@ package com.iodesystems.db.jooq
 
 import org.jooq.*
 
-class DynamicCondition(
+/**
+ * A lazy-evaluated SQL fragment computed at query execution time.
+ *
+ * Not typically used directly - use `lazy { }` in the DataSet DSL instead.
+ *
+ * @param block Lambda that computes the condition at query execution time
+ */
+class LazySql(
   val block: () -> Condition
 ) : SQL, QueryPartInternal {
   @Deprecated("Deprecated in Java")

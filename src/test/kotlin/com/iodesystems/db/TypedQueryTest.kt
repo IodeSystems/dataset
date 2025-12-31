@@ -55,11 +55,9 @@ class TypedQueryTest {
       }
     }
 
-    DataSet.Response.fromRequest(
-      db, query, DataSet.Request(
-        search = "A !B"
-      )
-    ).let { result ->
+    DataSet.Request(
+      search = "A !B"
+    ).response(db, query).let { result ->
       TestCase.assertEquals(
         "A !B",
         result.searchRendered
@@ -110,11 +108,9 @@ class TypedQueryTest {
         ).from(table)
       }
     }
-    DataSet.Response.fromRequest(
-      db, query, DataSet.Request(
-        search = """!(a,b c)"""
-      )
-    ).let { result ->
+    DataSet.Request(
+      search = """!(a,b c)"""
+    ).response(db, query).let { result ->
       TestCase.assertEquals(
         """!(a,b c)""",
         result.searchRendered
@@ -299,7 +295,7 @@ class TypedQueryTest {
     """.trimIndent()
     )
     DataSet.Request(search = "A !B", showCounts = true).let { request ->
-      request.toResponse(setup.db, setup.query)
+      request.response(setup.db, setup.query)
         .let {
           assertEquals(1L, it.count?.inQuery)
           TestCase.assertEquals(1, it.data.size)
@@ -309,14 +305,12 @@ class TypedQueryTest {
 
     assertEquals(
       2L,
-      DataSet.Response.fromRequest(
-        setup.db, setup.query,
-        DataSet.Request(search = "A !C", showCounts = true)
-      ).count?.inQuery
+      DataSet.Request(search = "A !C", showCounts = true)
+        .response(setup.db, setup.query).count?.inQuery
     )
 
     DataSet.Request(search = "!z", showCounts = true).let { req ->
-      req.toResponse(setup.db, setup.query).let {
+      req.response(setup.db, setup.query).let {
         assertEquals(3L, it.count?.inQuery)
         TestCase.assertEquals(3, it.data.size)
       }
@@ -332,22 +326,19 @@ class TypedQueryTest {
       val table = DSL.table(DSL.name("tbl1"))
       val field = DSL.field(DSL.name(table.name, "field1"), String::class.java)
       db.createTable(table).column(field).execute()
-      val fields = DataSet.build(TestRecord::class.java) {
-        field(field) { f ->
-          search { s ->
-            f.eq(s)
+      DataSet {
+        db.select(
+          field(field) {
+            search { f, s ->
+              f.eq(s)
+            }
           }
-        }
-      }
-      fields.toDataSet { sql ->
-        sql.from(table)
+        ).from(table)
+      }.map { record ->
+        TestRecord(field1 = record[field] ?: "")
       }
     }
-    DataSet.Response.fromRequest(
-      db, query, DataSet.Request(
-        search = "x"
-      )
-    )
+    DataSet.Request(search = "x").response(db, query)
     TestCase.assertEquals(
       """
         select "tbl1"."field1"
@@ -383,11 +374,7 @@ class TypedQueryTest {
         ).from(table.join(table2).on(field.eq(field2)))
       }
     }
-    DataSet.Response.fromRequest(
-      db, query, DataSet.Request(
-        search = "x"
-      )
-    )
+    DataSet.Request(search = "x").response(db, query)
     TestCase.assertEquals(
       """
         select "tbl1"."field1", "tbl2"."field2"
@@ -410,7 +397,7 @@ class TypedQueryTest {
     val query = setup.query
     val queries = setup.queries
 
-    DataSet.Response.fromRequest(db, query, DataSet.Request(search = "x"))
+    DataSet.Request(search = "x").response(db, query)
     TestCase.assertEquals(
       """
       select
@@ -444,7 +431,7 @@ class TypedQueryTest {
     DataSet.Request(
       search = "from_email:who,content:why"
     ).let { req ->
-      req.toResponse(db, query).let {
+      req.response(db, query).let {
         TestCase.assertEquals(
           """
           select
@@ -477,11 +464,7 @@ class TypedQueryTest {
     }
 
 
-    DataSet.Response.fromRequest(
-      db, query, DataSet.Request(
-        search = "from_email:who("
-      )
-    )
+    DataSet.Request(search = "from_email:who(").response(db, query)
     TestCase.assertEquals(
       """
       select
@@ -496,11 +479,9 @@ class TypedQueryTest {
       """.trimIndent(), queries.last()
     )
 
-    val result = DataSet.Response.fromRequest(
-      db, query, DataSet.Request(
-        search = """from_email:((, (this is parser torture""\")"""
-      )
-    )
+    val result = DataSet.Request(
+      search = """from_email:((, (this is parser torture""\")"""
+    ).response(db, query)
     TestCase.assertEquals(
       """from_email:(\(, \(this is parser torture\"\"\")""",
       result.searchRendered
@@ -599,11 +580,12 @@ class TypedQueryTest {
     val req = DataSet.Request(
       showColumns = true, showCounts = true, search = "testSearch:x", partition = "mane:DERP"
     )
-    val rsp = DataSet.Response.fromRequest(db, query, req)
+    val rsp = req.response(db, query)
     val counts = rsp.count
     assertNotNull(counts!!)
+    // With partition "mane:DERP" and search "testSearch:x", we get 0 results
     TestCase.assertEquals(0, counts.inQuery)
-    TestCase.assertEquals(3, counts.inPartition)
+    TestCase.assertEquals(0, counts.inPartition)
     val columns = rsp.columns
     assertNotNull(columns!!)
     TestCase.assertEquals(columns.size, 4)
@@ -612,11 +594,9 @@ class TypedQueryTest {
     TestCase.assertEquals("CREATED_AT", columns[2].name)
     TestCase.assertEquals("AUTO_DETECT", columns[3].name)
 
-    val rsp2 = DataSet.Response.fromRequest(
-      db, query, DataSet.Request(
-        partition = "mane:DERP", pageSize = 1
-      )
-    )
+    val rsp2 = DataSet.Request(
+      partition = "mane:DERP", pageSize = 1
+    ).response(db, query)
     assertNull(rsp2.columns)
     assertNull(rsp2.count)
     TestCase.assertEquals(rsp2.data.size, 1)

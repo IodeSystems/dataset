@@ -4,6 +4,7 @@ import com.iodesystems.db.TestUtils.setup
 import com.iodesystems.db.DataSet
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertNotNull
+import junit.framework.TestCase.assertTrue
 import org.jooq.DSLContext
 import org.jooq.Record
 import org.jooq.Select
@@ -563,7 +564,7 @@ class DataSetInvokeTest {
       }
     }
 
-    // Test DataSet.query() with Request/Response
+    // Test request.response() with Request/Response
     val request = DataSet.Request(
       search = "userId:5",
       showColumns = true,
@@ -572,7 +573,7 @@ class DataSetInvokeTest {
       pageSize = 10
     )
 
-    val response = DataSet.query(typedQuery.db, typedQuery.query, request)
+    val response = request.response(typedQuery.db, typedQuery.query)
 
     // Verify response structure
     assertNotNull(response)
@@ -612,12 +613,12 @@ class DataSetInvokeTest {
       }
     }
 
-    // Test DataSet.filter() - just gets data without metadata
+    // Test request.filter() - just gets data without metadata
     val request = DataSet.Request(
       search = "userId:3"
     )
 
-    val results = DataSet.filter(typedQuery.db, typedQuery.query, request)
+    val results = request.filter(typedQuery.db, typedQuery.query)
 
     assertNotNull(results)
     assertEquals(1, results.size)
@@ -641,7 +642,7 @@ class DataSetInvokeTest {
       showCounts = true
     )
 
-    val response = DataSet.query(typedQuery.db, typedQuery.query, request)
+    val response = request.response(typedQuery.db, typedQuery.query)
 
     // Page 1 with pageSize 5 should give us records 6-10 (5 records)
     assertEquals(5, response.data.size)
@@ -673,7 +674,7 @@ class DataSetInvokeTest {
       pageSize = 3
     )
 
-    val response = DataSet.query(typedQuery.db, typedQuery.query, request)
+    val response = request.response(typedQuery.db, typedQuery.query)
 
     assertEquals(3, response.data.size)
     // Results should be ordered by FIRST_NAME DESC
@@ -704,7 +705,7 @@ class DataSetInvokeTest {
       showCounts = true
     )
 
-    val response = DataSet.query(typedQuery.db, typedQuery.query, request)
+    val response = request.response(typedQuery.db, typedQuery.query)
 
     // Should get active users with ID <= 10
     // IDs 2, 4, 6, 8, 10 = 5 users
@@ -728,7 +729,7 @@ class DataSetInvokeTest {
     )
 
     // With unlimit=true, should get all 15 records despite pageSize=5
-    val results = DataSet.filter(typedQuery.db, typedQuery.query, request, unlimit = true)
+    val results = request.filter(typedQuery.db, typedQuery.query, unlimit = true)
 
     assertEquals(15, results.size)
   }
@@ -753,7 +754,7 @@ class DataSetInvokeTest {
       pageSize = 10
     )
 
-    val response = DataSet.query(typedQuery.db, typedQuery.query, request)
+    val response = request.response(typedQuery.db, typedQuery.query)
 
     // Should return first page of all results
     assertEquals(10, response.data.size)
@@ -778,9 +779,75 @@ class DataSetInvokeTest {
       search = "userId:5"
     )
 
-    val response = DataSet.query(typedQuery.db, typedQuery.query, request)
+    val response = request.response(typedQuery.db, typedQuery.query)
 
     assertNotNull(response.searchRendered)
     assertEquals("userId:5", response.searchRendered)
+  }
+
+  @Test
+  fun testLazy() {
+    // Test that lazy conditions are evaluated at query execution time
+    data class Context(var userId: Long, var evaluationCount: Int = 0)
+    val ctx = Context(1L)
+
+    val typedQuery = setup {
+      Meta.setup(it)
+
+      // Seed test data
+      it.insertInto(Meta.USER)
+        .columns(Meta.USER_ID, Meta.FIRST_NAME, Meta.LAST_NAME, Meta.EMAIL, Meta.IS_ACTIVE)
+        .values(1L, "Alice", "Smith", "alice@test.com", true)
+        .values(2L, "Bob", "Jones", "bob@test.com", true)
+        .values(3L, "Charlie", "Brown", "charlie@test.com", false)
+        .execute()
+
+      DataSet {
+        it.select(
+          field(Meta.USER_ID) { primaryKey() },
+          field(Meta.FIRST_NAME) {}
+        ).from(Meta.USER)
+          .where(lazy {
+            // This condition is evaluated every time the query runs
+            ctx.evaluationCount++
+            println("Lazy evaluated! Count: ${ctx.evaluationCount}, userId: ${ctx.userId}")
+            Meta.USER_ID.eq(ctx.userId)
+          })
+      }
+    }
+
+    println("DataSet created. Evaluation count should be 0")
+    assertEquals("Lazy condition should NOT run during DataSet creation", 0, ctx.evaluationCount)
+
+    // Query for user 1
+    ctx.userId = 1L
+    typedQuery.queries.clear()
+    val user1Results = typedQuery.query.data(typedQuery.db).fetch()
+    val sql1 = typedQuery.queries.last()
+    println("After query 1: evaluationCount=${ctx.evaluationCount}, results=${user1Results.size}")
+    println("SQL for user 1: $sql1")
+    assertTrue("Lazy condition SHOULD run during query execution", ctx.evaluationCount > 0)
+    assertTrue("SQL should contain WHERE USER_ID = 1", sql1.contains("USER_ID = 1"))
+    val countAfterFirstQuery = ctx.evaluationCount
+
+    // Change the context and query again
+    ctx.userId = 2L
+    typedQuery.queries.clear()
+    val user2Results = typedQuery.query.data(typedQuery.db).fetch()
+    val sql2 = typedQuery.queries.last()
+    println("After query 2: evaluationCount=${ctx.evaluationCount}, results=${user2Results.size}")
+    println("SQL for user 2: $sql2")
+    assertTrue("Lazy condition SHOULD run again on second query", ctx.evaluationCount > countAfterFirstQuery)
+    assertTrue("SQL should contain WHERE USER_ID = 2", sql2.contains("USER_ID = 2"))
+
+    // Verify results are different based on the lazy value
+    println("User 1 results: ${user1Results.map { it[Meta.FIRST_NAME] }}")
+    println("User 2 results: ${user2Results.map { it[Meta.FIRST_NAME] }}")
+
+    // Verify SQL was updated between queries
+    assertTrue("SQL strings should be different", sql1 != sql2)
+    println("\nSQL Comparison:")
+    println("User 1 SQL contains 'USER_ID = 1': ${sql1.contains("USER_ID = 1")}")
+    println("User 2 SQL contains 'USER_ID = 2': ${sql2.contains("USER_ID = 2")}")
   }
 }

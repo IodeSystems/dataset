@@ -4,10 +4,6 @@ import java.util.*
 
 object StringUtil {
 
-  inline fun <reified T : Enum<T>> String.toEnumOrNull(): T? {
-    return enumValues<T>().firstOrNull { it.name.equals(this, ignoreCase = true) }
-  }
-
   // Convert snake_case to camelCase, keeping the first letter lowercase
   fun String.snakeToCamelCase(): String {
     return this.split("_")
@@ -36,18 +32,8 @@ object StringUtil {
       .joinToString(" ") { it.lowercase().replaceFirstChar { char -> char.titlecase(Locale.getDefault()) } }
   }
 
-  fun String.lowerCaseFirstLetter(): String {
-    return this.replaceFirstChar { it.lowercase() }
-  }
-
   fun String.titleCase(): String {
     return this.split(" ")
       .joinToString(" ") { it.lowercase().replaceFirstChar { char -> char.titlecase(Locale.getDefault()) } }
-  }
-
-  fun String.camelToSnakeCase(): String {
-    return this.replace(Regex("([a-z])([A-Z]+)")) {
-      it.groupValues[1] + "_" + it.groupValues[2].lowercase()
-    }
   }
 }

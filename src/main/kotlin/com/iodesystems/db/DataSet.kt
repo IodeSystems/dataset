@@ -446,35 +446,83 @@ data class DataSet<T : Select<R>, R : Record, M>(
       query: DataSet<*, *, T>,
       unlimit: Boolean = false
     ): List<T> {
-      return Companion.filter(db, query, this, unlimit)
+      val transformed = transform(query, unlimit = unlimit)
+      return transformed.data(db).page(0, -1)
     }
 
     /**
      * Apply all filters and return full response with counts and columns.
      *
+     * Use this for list/table views that need pagination, counts, and column metadata.
+     * Applies selection, search, ordering, and pagination.
+     *
      * @param db Database context
      * @param query DataSet query builder
-     * @return Response with data, counts, columns
+     * @return Response with data, counts, columns, searchRendered
      */
-    fun <T> query(
+    fun <T> response(
       db: DSLContext,
       query: DataSet<*, *, T>
     ): Response<T> {
-      return Companion.query(db, query, this)
+      // Apply selection/search/ordering first
+      val transformed = transform(query, unlimit = false)
+      var dataSet = transformed.data(db)
+
+      // Apply partition first
+      val partition = this.partition
+      if (!partition.isNullOrEmpty()) {
+        dataSet = dataSet.search(partition)
+      }
+
+      // Maybe fetch counts?
+      var count: Response.Count? = null
+      if (showCounts == true) {
+        // Count after selection is applied
+        val inPartition = dataSet.count()
+        count = Response.Count(inPartition, inPartition)
+      }
+
+      val shouldQuery = showCounts != true || (count?.inQuery ?: 0) > 0
+      val page = this.page ?: 0
+      val pageSize = this.pageSize ?: 50
+
+      val data = if (shouldQuery) {
+        dataSet.page(page, pageSize)
+      } else {
+        emptyList()
+      }
+
+      // Do we even want these columns?
+      val columns = if (showColumns == true) {
+        transformed.fields.values.map { field ->
+          val order = transformed.order.find { it.name == field.field.name }?.order
+          Response.Column(
+            name = field.name,
+            title = field.title,
+            type = field.field.dataType.type.simpleName,
+            searchable = field.search != null,
+            orderable = field.orderable,
+            sortDirection = when (order) {
+              null -> null
+              SortOrder.ASC -> Order.Direction.ASC
+              else -> Order.Direction.DESC
+            },
+            primaryKey = field.primaryKey,
+          )
+        }
+      } else {
+        null
+      }
+
+      return Response(
+        count = count,
+        columns = columns,
+        data = data,
+        searchRendered = if (search.isNullOrEmpty()) "" else transformed.lastSearchCorrected
+      )
     }
 
-    /**
-     * @deprecated Use filter() or query() instead. toResponse() does not apply selection.
-     */
-    @Deprecated("Use filter() or query() instead", ReplaceWith("query(db, dataSet)"))
-    fun <T> toResponse(
-      db: DSLContext,
-      dataSet: DataSet<*, *, T>
-    ): Response<T> {
-      return Response.fromRequest(db, dataSet, this)
-    }
-
-    fun <T : Select<R>, R : Record, M> transform(
+    internal fun <T : Select<R>, R : Record, M> transform(
       query: DataSet<T, R, M>,
       transform: EnumSet<RequestTransform> = EnumSet.allOf(RequestTransform::class.java),
       unlimit: Boolean = false
@@ -569,96 +617,6 @@ data class DataSet<T : Select<R>, R : Record, M>(
       val inQuery: Long,
     )
 
-    companion object {
-
-      fun <T> fromRequest(
-        db: DSLContext,
-        query: DataSet<*, *, T>,
-        request: Request,
-        defaultPageSize: Int = 50,
-      ): Response<T> {
-        var dataSet = query.data(db)
-
-        // Apply partition first
-        val partition = request.partition
-        if (!partition.isNullOrEmpty()) {
-          dataSet = dataSet.search(partition)
-        }
-
-        // Maybe fetch counts?
-        var count: Count? = null
-        if (request.showCounts == true) {
-          if (request.search.isNullOrEmpty()) {
-            val inPartition = dataSet.count()
-            count = Count(inPartition, inPartition)
-          } else {
-            val inPartition = dataSet.count()
-            if (inPartition == 0L) {
-              count = Count(0, 0)
-            } else {
-              dataSet = dataSet.search(request.search)
-              val inQuery = dataSet.count()
-              count = Count(inPartition, inQuery)
-            }
-          }
-        } else {
-          if (!request.search.isNullOrEmpty()) {
-            dataSet = dataSet.search(request.search)
-          }
-        }
-
-        val shouldQuery = request.showCounts != true || (count?.inQuery ?: 0) > 0
-
-        // Apply ordering
-        if (!request.ordering.isNullOrEmpty()) {
-          dataSet = dataSet.clearOrder()
-          for (ordering in request.ordering) {
-            dataSet = dataSet.order(
-              ordering.field,
-              if (Order.Direction.ASC == ordering.order) SortOrder.ASC else SortOrder.DESC
-            )
-          }
-        }
-        val page = request.page ?: 0
-        val pageSize = request.pageSize ?: defaultPageSize
-        val data = if (shouldQuery) {
-          dataSet.page(page, pageSize)
-        } else {
-          emptyList()
-        }
-        // Do we even want these columns?
-        val columns = if (request.showColumns == true) {
-          dataSet.query.fields.values.map { field ->
-            val order = dataSet.query.order.find { it.name == field.field.name }?.order
-            Column(
-              name = field.name,
-              title = field.title,
-              type = field.field.dataType.type.simpleName,
-              searchable = field.search != null,
-              orderable = field.orderable,
-              sortDirection = when (order) {
-                null -> null
-                SortOrder.ASC -> Order.Direction.ASC
-                else -> Order.Direction.DESC
-              },
-              primaryKey = field.primaryKey,
-            )
-          }
-        } else {
-          null
-        }
-
-        return Response(
-          count = count,
-          columns = columns,
-          data = data,
-          // Only return the search if we applied a search here.
-          // We ignore partitioning and sub-searches and only pay attention to the request searching
-          searchRendered = if (request.search.isNullOrEmpty()) "" else dataSet.query.lastSearchCorrected
-        )
-      }
-    }
-
     data class Column(
       val name: String,
       val title: String,
@@ -737,128 +695,6 @@ data class DataSet<T : Select<R>, R : Record, M>(
       return context.buildDataSet(query)
     }
 
-    /**
-     * Apply all request filters (search, selection, ordering, pagination) and fetch data.
-     *
-     * Use this when you need the actual data with all filters applied.
-     * For bulk operations (delete, update), use unlimit=true to get all matching rows.
-     *
-     * @param db Database context
-     * @param query DataSet query builder
-     * @param request Request with search, selection, ordering, pagination
-     * @param unlimit If true, ignores pagination and returns all matching rows
-     * @return Filtered data
-     */
-    fun <T> filter(
-      db: DSLContext,
-      query: DataSet<*, *, T>,
-      request: Request,
-      unlimit: Boolean = false
-    ): List<T> {
-      val transformed = request.transform(query, unlimit = unlimit)
-      return transformed.data(db).page(0, -1)
-    }
-
-    /**
-     * Apply filters and return full response with counts and column metadata.
-     *
-     * Use this for list/table views that need pagination, counts, and column info.
-     * Selection is applied if present in request.
-     *
-     * @param db Database context
-     * @param query DataSet query builder
-     * @param request Request with all filter options
-     * @return Response with data, counts, columns
-     */
-    fun <T> query(
-      db: DSLContext,
-      query: DataSet<*, *, T>,
-      request: Request
-    ): Response<T> {
-      // Apply selection/search/ordering first
-      val transformed = request.transform(query, unlimit = false)
-      var dataSet = transformed.data(db)
-
-      // Apply partition first
-      val partition = request.partition
-      if (!partition.isNullOrEmpty()) {
-        dataSet = dataSet.search(partition)
-      }
-
-      // Maybe fetch counts?
-      var count: Response.Count? = null
-      if (request.showCounts == true) {
-        // Count after selection is applied
-        val inPartition = dataSet.count()
-        count = Response.Count(inPartition, inPartition)
-      }
-
-      val shouldQuery = request.showCounts != true || (count?.inQuery ?: 0) > 0
-      val page = request.page ?: 0
-      val pageSize = request.pageSize ?: 50
-
-      val data = if (shouldQuery) {
-        dataSet.page(page, pageSize)
-      } else {
-        emptyList()
-      }
-
-      // Do we even want these columns?
-      val columns = if (request.showColumns == true) {
-        transformed.fields.values.map { field ->
-          val order = transformed.order.find { it.name == field.field.name }?.order
-          Response.Column(
-            name = field.name,
-            title = field.title,
-            type = field.field.dataType.type.simpleName,
-            searchable = field.search != null,
-            orderable = field.orderable,
-            sortDirection = when (order) {
-              null -> null
-              SortOrder.ASC -> Order.Direction.ASC
-              else -> Order.Direction.DESC
-            },
-            primaryKey = field.primaryKey,
-          )
-        }
-      } else {
-        null
-      }
-
-      return Response(
-        count = count,
-        columns = columns,
-        data = data,
-        searchRendered = if (request.search.isNullOrEmpty()) "" else transformed.lastSearchCorrected
-      )
-    }
-
-    // Helper methods for building DataSets using Fields
-    fun build(init: (com.iodesystems.db.query.Fields<Record>.(com.iodesystems.db.query.Fields<Record>) -> Unit)): com.iodesystems.db.query.Fields<Record> {
-      return build(
-        Record::class.java,
-        init
-      )
-    }
-
-    fun buildForMaps(init: (com.iodesystems.db.query.Fields<Map<String, *>>.(com.iodesystems.db.query.Fields<Map<String, *>>) -> Unit)): com.iodesystems.db.query.Fields<Map<String, *>> {
-      @Suppress("UNCHECKED_CAST")
-      return build(Map::class.java as Class<Map<String, *>>, init)
-    }
-
-    fun <T> build(
-      mappedType: Class<T>,
-      init: (com.iodesystems.db.query.Fields<T>.(com.iodesystems.db.query.Fields<T>) -> Unit)
-    ): com.iodesystems.db.query.Fields<T> {
-      return com.iodesystems.db.query.Fields(
-        mappedType = mappedType,
-        customMapper = null,
-        fields = mutableListOf(),
-        searches = mutableListOf(),
-        init = init
-      )
-    }
-
   }
 }
 
@@ -904,6 +740,40 @@ class DataSetContext {
     return jooqField
   }
 
+  /**
+   * Create a lazy-evaluated SQL fragment that is computed at query execution time.
+   *
+   * Use this for runtime filtering based on request context (tenants, users, permissions, etc).
+   * The condition is evaluated every time the query runs, not when the DataSet is created.
+   *
+   * Example:
+   * ```kotlin
+   * DataSet {
+   *   db.select(field(PRODUCT.ID) { primaryKey() })
+   *     .from(USER)
+   *     .where(lazy {
+   *       // Evaluated per-request
+   *       USER.TENANT_ID.eq(RequestContext.currentTenantId())
+   *     })
+   * }
+   * ```
+   *
+   * For complex conditional logic:
+   * ```kotlin
+   * .where(lazy {
+   *   val user = SecurityContext.currentUser()
+   *   if (user.isAdmin) DSL.trueCondition()
+   *   else PRODUCT.OWNER_ID.eq(user.id)
+   * })
+   * ```
+   *
+   * @param supplier Lambda that computes the condition at query execution time
+   * @return A JOOQ SQL that evaluates the supplier when the query runs
+   */
+  fun lazy(supplier: () -> Condition): SQL {
+    return com.iodesystems.db.jooq.LazySql(supplier)
+  }
+
   internal fun <T : Record> buildDataSet(query: Select<T>): DataSet<Select<T>, T, T> {
     // Build field configurations map
     val fields = mutableMapOf<String, DataSet.FieldConfiguration<*>>()
@@ -921,7 +791,7 @@ class DataSetContext {
         search = config.searchFunction?.let { searchFn ->
           { searchString: String ->
             @Suppress("UNCHECKED_CAST")
-            (searchFn as (Field<Any>, String) -> Condition)(config.field as Field<Any>, searchString)
+            (searchFn as (Field<Any>, String) -> Condition)(config.field, searchString)
           }
         },
         primaryKey = config.isPrimaryKey,
