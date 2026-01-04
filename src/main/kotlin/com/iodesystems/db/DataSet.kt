@@ -774,8 +774,19 @@ class DataSetContext {
     return com.iodesystems.db.jooq.LazySql(supplier)
   }
 
+  fun <T : Record> Select<T>.autoDetectFields(db: DSLContext): Select<T> {
+    val configuredFieldNames = fieldConfigs.map { it.field.name }.toSet()
+    db.selectFrom(this).limit(0).fetch().recordType().fields().forEach { field ->
+      if (field.name !in configuredFieldNames) {
+        val unqualifiedName = DSL.name(field.name)
+        val unqualifiedField = field.`as`(unqualifiedName)
+        fieldConfigs.add(DataSetFieldConfig(unqualifiedField, globalSearch = false))
+      }
+    }
+    return this
+  }
+
   internal fun <T : Record> buildDataSet(query: Select<T>): DataSet<Select<T>, T, T> {
-    // Build field configurations map
     val fields = mutableMapOf<String, DataSet.FieldConfiguration<*>>()
     val defaultOrdering = mutableListOf<SortField<*>>()
 
@@ -783,8 +794,8 @@ class DataSetContext {
       @Suppress("UNCHECKED_CAST")
       val fieldConfig = DataSet.FieldConfiguration(
         field = config.field as Field<Any>,
-        name = config.field.name,
-        title = config.field.name,
+        name = DataSet.fieldName(config.field.name).name,
+        title = DataSet.fieldName(config.field.name).title,
         external = true,
         orderable = config.isOrderable,
         direction = config.orderDirection,
@@ -797,9 +808,8 @@ class DataSetContext {
         primaryKey = config.isPrimaryKey,
         open = config.globalSearch
       )
-      fields[config.field.name] = fieldConfig
+      fields[fieldConfig.name] = fieldConfig
 
-      // Apply default ordering for orderable fields
       if (config.isOrderable) {
         val sortOrder = when (config.orderDirection) {
           DataSet.Order.Direction.DESC -> SortOrder.DESC
@@ -809,19 +819,16 @@ class DataSetContext {
       }
     }
 
-    // Build named searches map
     val searchesMap = mutableMapOf<String, (query: String) -> Condition?>()
     searches.forEach { search ->
       searchesMap[search.name] = search.search
     }
 
-    // Get list of open search field names
     val openSearches = searches.filter { it.open }.map { it.name }
 
-    // Create DataSet directly
     return DataSet(
       table = query,
-      mapper = { it }, // Identity mapper for Record -> Record
+      mapper = { it },
       fields = fields,
       searches = searchesMap,
       openSearches = openSearches,

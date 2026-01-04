@@ -850,4 +850,34 @@ class DataSetInvokeTest {
     println("User 1 SQL contains 'USER_ID = 1': ${sql1.contains("USER_ID = 1")}")
     println("User 2 SQL contains 'USER_ID = 2': ${sql2.contains("USER_ID = 2")}")
   }
+
+  @Test
+  fun testAutoDetectFields() {
+    val typedQuery = subject { db ->
+      DataSet {
+        db.select(
+          field(Meta.USER_ID) {
+            primaryKey()
+            search { f, s -> f.eq(s.toLongOrNull()) }
+          },
+          Meta.FIRST_NAME,
+          Meta.LAST_NAME,
+          Meta.EMAIL,
+          Meta.PHONE,
+          Meta.IS_ACTIVE
+        ).from(Meta.USER).autoDetectFields(db)
+      }
+    }
+
+    assertEquals(6, typedQuery.query.fields.size)
+    assertEquals(true, typedQuery.query.fields["USER_ID"]?.primaryKey)
+    assertNotNull(typedQuery.query.fields["FIRST_NAME"])
+    assertNotNull(typedQuery.query.fields["LAST_NAME"])
+    assertNotNull(typedQuery.query.fields["EMAIL"])
+    assertNotNull(typedQuery.query.fields["PHONE"])
+    assertNotNull(typedQuery.query.fields["IS_ACTIVE"])
+
+    val users = typedQuery.query.data(typedQuery.db).fetch()
+    assertEquals(15, users.size)
+  }
 }
