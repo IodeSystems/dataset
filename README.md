@@ -5,7 +5,7 @@ A Kotlin library providing a type-safe, DSL-based query builder that converts fr
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Version:** 9.0.1-SNAPSHOT
+**Version:** 10.0.0-SNAPSHOT
 **Requirements:** Kotlin 2.1+, Java 21+, JOOQ 3.19+
 
 Example query language:
