@@ -64,6 +64,7 @@ tasks {
   }
   javadoc {
     dependsOn(parser, lexer)
+    exclude("com/iodesystems/db/query/DataSetSearch*")
   }
   compileKotlin {
     dependsOn(parser, lexer)
