@@ -522,7 +522,7 @@ data class DataSet<T : Select<R>, R : Record, M>(
       )
     }
 
-    internal fun <T : Select<R>, R : Record, M> transform(
+    fun <T : Select<R>, R : Record, M> transform(
       query: DataSet<T, R, M>,
       transform: EnumSet<RequestTransform> = EnumSet.allOf(RequestTransform::class.java),
       unlimit: Boolean = false
