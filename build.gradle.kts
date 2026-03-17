@@ -15,7 +15,7 @@ repositories {
 
 plugins {
   id("release-conventions")
-  id("nl.littlerobots.version-catalog-update") version "1.0.1"
+  id("nl.littlerobots.version-catalog-update") version "1.1.0"
 }
 
 repositories {
