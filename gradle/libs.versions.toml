@@ -8,7 +8,7 @@ jooq = "3.21.7"
 junit-junit = "4.13.2"
 kotlin = "2.4.10"
 org-jetbrains-dokka = "2.2.0"
-slf4j = "2.0.18"
+slf4j = "2.0.20"
 
 [libraries]
 analysis-kotlin-descriptors = { module = "org.jetbrains.dokka:analysis-kotlin-descriptors", version.ref = "org-jetbrains-dokka" }
