@@ -4,7 +4,7 @@ io-github-gradle-nexus-publish-plugin = "io.github.gradle-nexus.publish-plugin:2
 
 [versions]
 antlr4 = "4.13.2"
-jooq = "3.21.7"
+jooq = "3.21.9"
 junit-junit = "4.13.2"
 kotlin = "2.4.10"
 org-jetbrains-dokka = "2.2.0"
